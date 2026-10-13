@@ -5,7 +5,8 @@ import { createSea } from './objects/sea.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
-let seaMesh;
+let seaMesh, seaUpdate;
+const timer = new THREE.Timer();
 
 const init = () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false });
@@ -20,8 +21,9 @@ const init = () => {
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
 
-  const { mesh } = createSea();
+  const { mesh, update } = createSea();
   seaMesh = mesh;
+  seaUpdate = update;
   scene.add(seaMesh);
 
   window.addEventListener('resize', resize);
@@ -31,6 +33,9 @@ const init = () => {
 };
 
 const draw = () => {
+  timer.update();
+  seaUpdate(timer.getElapsed());
+
   controls.update();
   renderer.render(scene, camera);
 };
