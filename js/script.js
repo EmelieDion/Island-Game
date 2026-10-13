@@ -7,6 +7,7 @@ const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
 let seaMesh, seaUpdate;
 const timer = new THREE.Timer();
+const mouse = new THREE.Vector2(0.3, 0.5);
 
 const init = () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false });
@@ -26,6 +27,11 @@ const init = () => {
   seaUpdate = update;
   scene.add(seaMesh);
 
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX / window.innerWidth;
+    mouse.y = e.clientY / window.innerHeight;
+  });
+
   window.addEventListener('resize', resize);
   resize();
 
@@ -34,7 +40,7 @@ const init = () => {
 
 const draw = () => {
   timer.update();
-  seaUpdate(timer.getElapsed());
+  seaUpdate(timer.getElapsed(), timer.getDelta(), mouse);
 
   controls.update();
   renderer.render(scene, camera);

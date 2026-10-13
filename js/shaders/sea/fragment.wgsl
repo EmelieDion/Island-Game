@@ -1,5 +1,5 @@
 // Port of "Tileable Water Caustic" by Dave_Hoskins - https://www.shadertoy.com/view/MdlXz8
-fn sea(fragCoord: vec2f, iResolution: vec2f, iTime: f32) -> vec4f {
+fn sea(fragCoord: vec2f, iResolution: vec2f, iTime: f32, glints: f32) -> vec4f {
   let TAU = 6.28318530718;
   let MAX_ITER = 5;
 
@@ -19,7 +19,7 @@ fn sea(fragCoord: vec2f, iResolution: vec2f, iTime: f32) -> vec4f {
   c /= f32(MAX_ITER);
   c = 1.17 - pow(c, 1.4);
 
-  let colour = clamp(vec3f(pow(abs(c), 8.0)) + vec3f(0.0, 0.35, 0.5), vec3f(0.0), vec3f(1.0));
+  let colour = clamp(vec3f(pow(abs(c), 8.0)) * glints + vec3f(0.0, 0.35, 0.5), vec3f(0.0), vec3f(1.0));
 
   return vec4f(colour, 1.0);
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { wgslFn, uniform, uv, positionLocal, sin, cos, vec3 } from 'three/tsl';
+import { wgslFn, uniform, uv, positionLocal, sin, cos, vec3, colorSpaceToWorking } from 'three/tsl';
 
 import seaShader from '../shaders/sea/fragment.wgsl?raw';
 
@@ -9,6 +9,7 @@ export const createSea = () => {
     waveHeight: uniform(0.25),
     iTime: uniform(0),
     iResolution: uniform(new THREE.Vector2(1, 1)),
+    glints: uniform(1),
   };
 
   const geometry = new THREE.RingGeometry(0.01, 30, 160, 60);
@@ -24,17 +25,19 @@ export const createSea = () => {
   material.positionNode = vec3(p.x, p.y.add(wave), p.z);
 
   const sea = wgslFn(seaShader);
-  material.colorNode = sea({
+  material.colorNode = colorSpaceToWorking(sea({
     fragCoord: uv().mul(7.0).fract().mul(uniforms.iResolution),
     iResolution: uniforms.iResolution,
     iTime: uniforms.iTime,
-  });
+    glints: uniforms.glints,
+  }), THREE.SRGBColorSpace);
 
   const mesh = new THREE.Mesh(geometry, material);
 
-  const update = (elapsedTime) => {
+  const update = (elapsedTime, deltaTime, mouse) => {
     uniforms.time.value = elapsedTime;
-    uniforms.iTime.value = elapsedTime;
+    uniforms.iTime.value += deltaTime * (0.3 + mouse.x * 2.7);
+    uniforms.glints.value = 0.3 + (1 - mouse.y) * 1.4;
   };
 
   return {
