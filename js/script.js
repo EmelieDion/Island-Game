@@ -1,7 +1,8 @@
 import * as THREE from 'three/webgpu';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const $canvas = document.getElementById('webgl');
-let renderer, camera, scene;
+let renderer, camera, scene, controls;
 let plane, material;
 
 const init = () => {
@@ -11,6 +12,10 @@ const init = () => {
   camera.position.set(0, 0, 10);
 
   scene = new THREE.Scene();
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
 
   const geometry = new THREE.PlaneGeometry(2, 2);
   material = new THREE.MeshBasicMaterial({ color: 0xff00ff });
@@ -24,6 +29,7 @@ const init = () => {
 };
 
 const draw = () => {
+  controls.update();
   renderer.render(scene, camera);
 };
 
