@@ -1,26 +1,36 @@
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+import { createSea } from './objects/sea.js';
+
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
-let plane, material;
+let seaMesh, seaUpdate;
+const timer = new THREE.Timer();
+const mouse = new THREE.Vector2(0.3, 0.5);
 
 const init = () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false });
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100);
-  camera.position.set(0, 0, 10);
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 18, 34);
 
   scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xb8d4ee);
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
 
-  const geometry = new THREE.PlaneGeometry(2, 2);
-  material = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-  plane = new THREE.Mesh(geometry, material);
-  scene.add(plane);
+  const { mesh, update } = createSea();
+  seaMesh = mesh;
+  seaUpdate = update;
+  scene.add(seaMesh);
+
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX / window.innerWidth;
+    mouse.y = e.clientY / window.innerHeight;
+  });
 
   window.addEventListener('resize', resize);
   resize();
@@ -29,6 +39,9 @@ const init = () => {
 };
 
 const draw = () => {
+  timer.update();
+  seaUpdate(timer.getElapsed(), timer.getDelta(), mouse);
+
   controls.update();
   renderer.render(scene, camera);
 };
