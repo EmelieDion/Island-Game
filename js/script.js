@@ -7,13 +7,14 @@ import { loadModels } from './objects/models.js';
 import { createSky } from './objects/sky.js';
 import { createDayCycle } from './systems/dayCycle.js';
 import { createRain } from './objects/rain.js';
+import { createSnow } from './objects/snow.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
 let seaMesh, seaUpdate, sky;
 let sun, moon, hemisphereLight, setHouseBrightness;
-let rain;
-const weather = { rainTarget: 0, rain: 0 };
+let rain, snow;
+const weather = { rainTarget: 0, rain: 0, snowTarget: 0, snow: 0 };
 const wind = new THREE.Vector2(1.2, 0.4);
 const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
@@ -49,6 +50,9 @@ const init = async () => {
 
   rain = createRain();
   scene.add(rain.mesh);
+
+  snow = createSnow();
+  scene.add(snow.mesh);
 
   sun = new THREE.DirectionalLight(0xffffff, 2.4);
   sun.castShadow = true;
@@ -107,6 +111,13 @@ const init = async () => {
     $rainOutput.textContent = `${Math.round(weather.rainTarget * 100)}%`;
   });
 
+  const $snow = document.getElementById('snow');
+  const $snowOutput = document.getElementById('snowOutput');
+  $snow.addEventListener('input', () => {
+    weather.snowTarget = parseFloat($snow.value);
+    $snowOutput.textContent = `${Math.round(weather.snowTarget * 100)}%`;
+  });
+
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
     mouse.y = e.clientY / window.innerHeight;
@@ -126,12 +137,13 @@ const updateLights = () => {
   const low = 1 - THREE.MathUtils.smoothstep(sunDir.y, 0.05, 0.4);
   sunColor.setRGB(1, 1 - low * 0.35, 1 - low * 0.6);
   sun.color.copy(sunColor);
-  sun.intensity = sunUp * 2.4 * (1 - weather.rain * 0.6);
+  const clouds = Math.max(weather.rain, weather.snow * 0.7);
+  sun.intensity = sunUp * 2.4 * (1 - clouds * 0.6);
 
   moon.position.copy(sunDir).multiplyScalar(-45);
   moon.intensity = (1 - day) * 0.45;
 
-  hemisphereLight.intensity = (0.18 + day * 0.8) * (1 - weather.rain * 0.3);
+  hemisphereLight.intensity = (0.18 + day * 0.8) * (1 - clouds * 0.3);
   setHouseBrightness(0.25 + day * 0.75);
 
   sky.uniforms.sunDir.value.copy(sunDir);
@@ -144,11 +156,14 @@ const draw = () => {
   const deltaTime = timer.getDelta();
   dayCycle.update(deltaTime);
   weather.rain += (weather.rainTarget - weather.rain) * Math.min(1, deltaTime * 1.5);
+  weather.snow += (weather.snowTarget - weather.snow) * Math.min(1, deltaTime * 1.5);
   updateLights();
 
   seaUpdate(timer.getElapsed(), deltaTime, mouse, dayCycle.state.day);
   sky.update(timer.getElapsed());
-  rain.update(renderer, weather.rain, wind, deltaTime, 0.35 + dayCycle.state.day * 0.65);
+  const particleBrightness = 0.35 + dayCycle.state.day * 0.65;
+  rain.update(renderer, weather.rain, wind, deltaTime, particleBrightness);
+  snow.update(renderer, weather.snow, wind, deltaTime, timer.getElapsed(), particleBrightness);
 
   controls.update();
   renderer.render(scene, camera);
