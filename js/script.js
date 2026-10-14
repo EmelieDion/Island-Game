@@ -155,7 +155,8 @@ const draw = () => {
 };
 
 const resize = () => {
-  renderer.setSize(window.innerWidth * window.devicePixelRatio, window.innerHeight * window.devicePixelRatio, false);
+  const pixelRatio = Math.min(window.devicePixelRatio, 1.5);
+  renderer.setSize(window.innerWidth * pixelRatio, window.innerHeight * pixelRatio, false);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 };
