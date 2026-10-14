@@ -2,7 +2,8 @@ import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { createSea } from './objects/sea.js';
-import { createIsland } from './objects/island.js';
+import { createIsland, terrainHeight, VILLAGE } from './objects/island.js';
+import { loadModels } from './objects/models.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -10,7 +11,7 @@ let seaMesh, seaUpdate;
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
 
-const init = () => {
+const init = async () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false, antialias: true });
   renderer.shadowMap.enabled = true;
 
@@ -49,6 +50,10 @@ const init = () => {
 
   const hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
   scene.add(hemisphereLight);
+
+  const { house } = await loadModels();
+  house.position.set(VILLAGE.x, terrainHeight(VILLAGE.x, VILLAGE.y) - 0.05, VILLAGE.y);
+  scene.add(house);
 
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
