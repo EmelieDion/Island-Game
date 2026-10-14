@@ -25,6 +25,7 @@ const mouse = new THREE.Vector2(0.3, 0.5);
 const init = async () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false, antialias: true });
   renderer.shadowMap.enabled = true;
+  await renderer.init();
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(19, 12.5, 22);
@@ -134,7 +135,11 @@ const init = async () => {
   window.addEventListener('resize', resize);
   resize();
 
+  await renderer.compileAsync(scene, camera);
+  await sky.compile(renderer, camera);
+
   renderer.setAnimationLoop(draw);
+  document.getElementById('loader').classList.add('is-done');
 };
 
 const updateLights = () => {

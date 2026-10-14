@@ -67,9 +67,12 @@ export const createSky = () => {
     renderer.setRenderTarget(null);
   };
 
+  const compile = (renderer, camera) => renderer.compileAsync(auroraScene, camera);
+
   return {
     mesh,
     update,
+    compile,
     uniforms,
   };
 };
