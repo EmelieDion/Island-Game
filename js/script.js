@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { createSea } from './objects/sea.js';
-import { createIsland, terrainHeight, VILLAGE } from './objects/island.js';
+import { createIsland, terrainHeight, VILLAGE, WINDMILL } from './objects/island.js';
 import { loadModels } from './objects/models.js';
 
 const $canvas = document.getElementById('webgl');
@@ -51,9 +51,28 @@ const init = async () => {
   const hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
   scene.add(hemisphereLight);
 
-  const { house } = await loadModels();
-  house.position.set(VILLAGE.x, terrainHeight(VILLAGE.x, VILLAGE.y) - 0.05, VILLAGE.y);
-  scene.add(house);
+  const { createHouse, windmill } = await loadModels();
+
+  const houses = [
+    { x: -1.9, z: -1.7, rotation: 0.2, tint: 0xffffff },
+    { x: 0.9, z: -2.1, rotation: -0.5, tint: 0xffe2d6 },
+    { x: 2.8, z: 0.1, rotation: -1.3, tint: 0xdfefff },
+    { x: -2.9, z: 0.9, rotation: 0.9, tint: 0xfff1c9 },
+    { x: 0.1, z: 1.3, rotation: 1.6, tint: 0xe4f5dc },
+    { x: 2.2, z: 2.8, rotation: -0.8, tint: 0xf6dcef },
+  ];
+  houses.forEach(({ x, z, rotation, tint }) => {
+    const house = createHouse(tint);
+    const px = VILLAGE.x + x;
+    const pz = VILLAGE.y + z;
+    house.position.set(px, terrainHeight(px, pz) - 0.05, pz);
+    house.rotation.y = rotation;
+    scene.add(house);
+  });
+
+  windmill.position.set(WINDMILL.x, terrainHeight(WINDMILL.x, WINDMILL.y) - 0.1, WINDMILL.y);
+  windmill.rotation.y = -0.6;
+  scene.add(windmill);
 
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
