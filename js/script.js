@@ -4,10 +4,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createSea } from './objects/sea.js';
 import { createIsland, terrainHeight, VILLAGE, WINDMILL } from './objects/island.js';
 import { loadModels } from './objects/models.js';
+import { createSky } from './objects/sky.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
-let seaMesh, seaUpdate;
+let seaMesh, seaUpdate, sky;
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
 
@@ -19,7 +20,9 @@ const init = async () => {
   camera.position.set(19, 12.5, 22);
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xb8d4ee);
+
+  sky = createSky();
+  scene.add(sky.mesh);
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -37,7 +40,7 @@ const init = async () => {
   scene.add(islandMesh);
 
   const sun = new THREE.DirectionalLight(0xffffff, 2.4);
-  sun.position.set(27, 34, 13);
+  sun.position.copy(sky.uniforms.sunDir.value).multiplyScalar(45);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -22;
@@ -88,6 +91,7 @@ const init = async () => {
 const draw = () => {
   timer.update();
   seaUpdate(timer.getElapsed(), timer.getDelta(), mouse);
+  sky.update(timer.getElapsed());
 
   controls.update();
   renderer.render(scene, camera);
