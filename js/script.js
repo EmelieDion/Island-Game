@@ -6,11 +6,15 @@ import { createIsland, terrainHeight, VILLAGE, WINDMILL } from './objects/island
 import { loadModels } from './objects/models.js';
 import { createSky } from './objects/sky.js';
 import { createDayCycle } from './systems/dayCycle.js';
+import { createRain } from './objects/rain.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
 let seaMesh, seaUpdate, sky;
 let sun, moon, hemisphereLight, setHouseBrightness;
+let rain;
+const weather = { rainTarget: 0, rain: 0 };
+const wind = new THREE.Vector2(1.2, 0.4);
 const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
@@ -42,6 +46,9 @@ const init = async () => {
 
   const { mesh: islandMesh } = createIsland();
   scene.add(islandMesh);
+
+  rain = createRain();
+  scene.add(rain.mesh);
 
   sun = new THREE.DirectionalLight(0xffffff, 2.4);
   sun.castShadow = true;
@@ -93,6 +100,13 @@ const init = async () => {
     $timeOutput.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   });
 
+  const $rain = document.getElementById('rain');
+  const $rainOutput = document.getElementById('rainOutput');
+  $rain.addEventListener('input', () => {
+    weather.rainTarget = parseFloat($rain.value);
+    $rainOutput.textContent = `${Math.round(weather.rainTarget * 100)}%`;
+  });
+
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
     mouse.y = e.clientY / window.innerHeight;
@@ -112,12 +126,12 @@ const updateLights = () => {
   const low = 1 - THREE.MathUtils.smoothstep(sunDir.y, 0.05, 0.4);
   sunColor.setRGB(1, 1 - low * 0.35, 1 - low * 0.6);
   sun.color.copy(sunColor);
-  sun.intensity = sunUp * 2.4;
+  sun.intensity = sunUp * 2.4 * (1 - weather.rain * 0.6);
 
   moon.position.copy(sunDir).multiplyScalar(-45);
   moon.intensity = (1 - day) * 0.45;
 
-  hemisphereLight.intensity = 0.18 + day * 0.8;
+  hemisphereLight.intensity = (0.18 + day * 0.8) * (1 - weather.rain * 0.3);
   setHouseBrightness(0.25 + day * 0.75);
 
   sky.uniforms.sunDir.value.copy(sunDir);
@@ -129,10 +143,12 @@ const draw = () => {
   timer.update();
   const deltaTime = timer.getDelta();
   dayCycle.update(deltaTime);
+  weather.rain += (weather.rainTarget - weather.rain) * Math.min(1, deltaTime * 1.5);
   updateLights();
 
   seaUpdate(timer.getElapsed(), deltaTime, mouse, dayCycle.state.day);
   sky.update(timer.getElapsed());
+  rain.update(renderer, weather.rain, wind, deltaTime, 0.35 + dayCycle.state.day * 0.65);
 
   controls.update();
   renderer.render(scene, camera);
