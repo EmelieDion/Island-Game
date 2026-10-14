@@ -19,3 +19,44 @@ body
     width: 100%;
     height: 100%;
 }
+
+.panel
+{
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 260px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: rgba(14, 23, 38, 0.78);
+    border: 1px solid rgba(232, 200, 140, 0.25);
+    color: #f3ead8;
+    font-family: system-ui, sans-serif;
+    backdrop-filter: blur(12px);
+}
+
+.panel__title
+{
+    font-size: 18px;
+    margin-bottom: 12px;
+}
+
+.control__row
+{
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.control output
+{
+    color: #f6d999;
+    font-variant-numeric: tabular-nums;
+}
+
+.control input
+{
+    width: 100%;
+    accent-color: #e7b85e;
+}

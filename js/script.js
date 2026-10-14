@@ -5,10 +5,14 @@ import { createSea } from './objects/sea.js';
 import { createIsland, terrainHeight, VILLAGE, WINDMILL } from './objects/island.js';
 import { loadModels } from './objects/models.js';
 import { createSky } from './objects/sky.js';
+import { createDayCycle } from './systems/dayCycle.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
 let seaMesh, seaUpdate, sky;
+let sun, moon, hemisphereLight, setHouseBrightness;
+const dayCycle = createDayCycle(13);
+const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
 
@@ -39,8 +43,7 @@ const init = async () => {
   const { mesh: islandMesh } = createIsland();
   scene.add(islandMesh);
 
-  const sun = new THREE.DirectionalLight(0xffffff, 2.4);
-  sun.position.copy(sky.uniforms.sunDir.value).multiplyScalar(45);
+  sun = new THREE.DirectionalLight(0xffffff, 2.4);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -22;
@@ -51,10 +54,14 @@ const init = async () => {
   sun.shadow.bias = -0.0005;
   scene.add(sun);
 
-  const hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
+  moon = new THREE.DirectionalLight(0x9fb4ff, 0);
+  scene.add(moon);
+
+  hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
   scene.add(hemisphereLight);
 
-  const { createHouse, windmill } = await loadModels();
+  const { createHouse, setBrightness, windmill } = await loadModels();
+  setHouseBrightness = setBrightness;
 
   const houses = [
     { x: -1.9, z: -1.7, rotation: 0.2, tint: 0xffffff },
@@ -77,6 +84,15 @@ const init = async () => {
   windmill.rotation.y = -0.6;
   scene.add(windmill);
 
+  const $time = document.getElementById('time');
+  const $timeOutput = document.getElementById('timeOutput');
+  $time.addEventListener('input', () => {
+    dayCycle.state.target = parseFloat($time.value);
+    const hours = Math.floor(dayCycle.state.target) % 24;
+    const minutes = Math.floor((dayCycle.state.target % 1) * 60);
+    $timeOutput.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  });
+
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
     mouse.y = e.clientY / window.innerHeight;
@@ -88,9 +104,33 @@ const init = async () => {
   renderer.setAnimationLoop(draw);
 };
 
+const updateLights = () => {
+  const { sunDir, day } = dayCycle.state;
+
+  sun.position.copy(sunDir).multiplyScalar(45);
+  const sunUp = THREE.MathUtils.smoothstep(sunDir.y, -0.05, 0.15);
+  const low = 1 - THREE.MathUtils.smoothstep(sunDir.y, 0.05, 0.4);
+  sunColor.setRGB(1, 1 - low * 0.35, 1 - low * 0.6);
+  sun.color.copy(sunColor);
+  sun.intensity = sunUp * 2.4;
+
+  moon.position.copy(sunDir).multiplyScalar(-45);
+  moon.intensity = (1 - day) * 0.45;
+
+  hemisphereLight.intensity = 0.18 + day * 0.8;
+  setHouseBrightness(0.25 + day * 0.75);
+
+  sky.uniforms.sunDir.value.copy(sunDir);
+  sky.uniforms.day.value = day;
+};
+
 const draw = () => {
   timer.update();
-  seaUpdate(timer.getElapsed(), timer.getDelta(), mouse);
+  const deltaTime = timer.getDelta();
+  dayCycle.update(deltaTime);
+  updateLights();
+
+  seaUpdate(timer.getElapsed(), deltaTime, mouse, dayCycle.state.day);
   sky.update(timer.getElapsed());
 
   controls.update();

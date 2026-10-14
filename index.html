@@ -9,6 +9,17 @@
 </head>
 <body>
   <canvas id="webgl"></canvas>
+
+  <aside class="panel">
+    <h2 class="panel__title">Weather machine</h2>
+    <div class="control">
+      <div class="control__row">
+        <label for="time">Time</label>
+        <output id="timeOutput">13:00</output>
+      </div>
+      <input type="range" id="time" min="0" max="24" step="0.05" value="13">
+    </div>
+  </aside>
   <script src="js/script.js" type="module"></script>
 </body>
 </html>

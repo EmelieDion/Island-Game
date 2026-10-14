@@ -10,6 +10,7 @@ export const createSea = () => {
     iTime: uniform(0),
     iResolution: uniform(new THREE.Vector2(1, 1)),
     glints: uniform(1),
+    brightness: uniform(1),
   };
 
   const geometry = new THREE.RingGeometry(0.01, 30, 160, 60);
@@ -30,14 +31,15 @@ export const createSea = () => {
     iResolution: uniforms.iResolution,
     iTime: uniforms.iTime,
     glints: uniforms.glints,
-  }), THREE.SRGBColorSpace);
+  }), THREE.SRGBColorSpace).mul(uniforms.brightness);
 
   const mesh = new THREE.Mesh(geometry, material);
 
-  const update = (elapsedTime, deltaTime, mouse) => {
+  const update = (elapsedTime, deltaTime, mouse, day) => {
     uniforms.time.value = elapsedTime;
     uniforms.iTime.value += deltaTime * (0.3 + mouse.x * 2.7);
     uniforms.glints.value = 0.3 + (1 - mouse.y) * 1.4;
+    uniforms.brightness.value = 0.07 + day * 0.93;
   };
 
   return {
