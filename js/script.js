@@ -14,8 +14,8 @@ let renderer, camera, scene, controls;
 let seaMesh, seaUpdate, sky;
 let sun, moon, hemisphereLight, setHouseBrightness;
 let rain, snow;
-const weather = { rainTarget: 0, rain: 0, snowTarget: 0, snow: 0 };
-const wind = new THREE.Vector2(1.2, 0.4);
+const weather = { rainTarget: 0, rain: 0, snowTarget: 0, snow: 0, windTarget: 0.15, wind: 0.15 };
+const wind = new THREE.Vector2();
 const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
@@ -118,6 +118,13 @@ const init = async () => {
     $snowOutput.textContent = `${Math.round(weather.snowTarget * 100)}%`;
   });
 
+  const $wind = document.getElementById('wind');
+  const $windOutput = document.getElementById('windOutput');
+  $wind.addEventListener('input', () => {
+    weather.windTarget = parseFloat($wind.value);
+    $windOutput.textContent = `${Math.round(weather.windTarget * 100)}%`;
+  });
+
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
     mouse.y = e.clientY / window.innerHeight;
@@ -157,9 +164,12 @@ const draw = () => {
   dayCycle.update(deltaTime);
   weather.rain += (weather.rainTarget - weather.rain) * Math.min(1, deltaTime * 1.5);
   weather.snow += (weather.snowTarget - weather.snow) * Math.min(1, deltaTime * 1.5);
+  weather.wind += (weather.windTarget - weather.wind) * Math.min(1, deltaTime * 1.5);
+  const windAngle = 0.3 + Math.sin(timer.getElapsed() * 0.05) * 0.6;
+  wind.set(Math.cos(windAngle), Math.sin(windAngle)).multiplyScalar(weather.wind * 9);
   updateLights();
 
-  seaUpdate(timer.getElapsed(), deltaTime, mouse, dayCycle.state.day);
+  seaUpdate(deltaTime, mouse, dayCycle.state.day, weather.wind);
   sky.update(timer.getElapsed());
   const particleBrightness = 0.35 + dayCycle.state.day * 0.65;
   rain.update(renderer, weather.rain, wind, deltaTime, particleBrightness);
