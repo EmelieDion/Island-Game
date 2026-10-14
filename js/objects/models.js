@@ -51,19 +51,28 @@ export const loadModels = async () => {
   prepare(windmill);
 
   const houseTemplate = fitToSize(house, 1.6);
+  const houseMaterials = [];
 
   const createHouse = (tint) => {
     const copy = houseTemplate.clone();
     const material = bakedMaterial.clone();
-    material.color.set(tint).multiplyScalar(WALL_BRIGHTNESS);
+    material.userData.tint = new THREE.Color(tint);
+    houseMaterials.push(material);
     copy.traverse((child) => {
       if (child.isMesh && child.material.name === 'Baked') child.material = material;
     });
     return copy;
   };
 
+  const setBrightness = (brightness) => {
+    houseMaterials.forEach((material) => {
+      material.color.copy(material.userData.tint).multiplyScalar(WALL_BRIGHTNESS * brightness);
+    });
+  };
+
   return {
     createHouse,
+    setBrightness,
     windmill: fitToSize(windmill, 3.4, 'height'),
   };
 };
