@@ -122,6 +122,7 @@ const updateLights = () => {
 
   sky.uniforms.sunDir.value.copy(sunDir);
   sky.uniforms.day.value = day;
+  sky.uniforms.aurora.value = THREE.MathUtils.smoothstep(1 - day, 0.6, 1) * 1.4;
 };
 
 const draw = () => {
