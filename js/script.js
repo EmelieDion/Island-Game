@@ -155,7 +155,9 @@ const updateLights = () => {
 
   sky.uniforms.sunDir.value.copy(sunDir);
   sky.uniforms.day.value = day;
-  sky.uniforms.aurora.value = THREE.MathUtils.smoothstep(1 - day, 0.6, 1) * 1.4;
+  const night = THREE.MathUtils.smoothstep(1 - day, 0.6, 1);
+  const cold = THREE.MathUtils.smoothstep(weather.snow, 0.2, 0.7);
+  sky.uniforms.aurora.value = night * cold * 1.4;
 };
 
 const draw = () => {
@@ -170,7 +172,7 @@ const draw = () => {
   updateLights();
 
   seaUpdate(deltaTime, mouse, dayCycle.state.day, weather.wind);
-  sky.update(timer.getElapsed());
+  sky.update(timer.getElapsed(), renderer, camera);
   const particleBrightness = 0.35 + dayCycle.state.day * 0.65;
   rain.update(renderer, weather.rain, wind, deltaTime, particleBrightness);
   snow.update(renderer, weather.snow, wind, deltaTime, timer.getElapsed(), particleBrightness);
