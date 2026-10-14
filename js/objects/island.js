@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { addSnow } from '../systems/snowCover.js';
 
 export const VILLAGE = new THREE.Vector2(-1.5, 2);
 export const WINDMILL = new THREE.Vector2(6.5, -4.5);
@@ -79,7 +80,7 @@ const createTerrain = () => {
     color.offsetHSL(0, 0, Math.sin(x * 12.9898 + z * 78.233) * 0.02);
   });
 
-  const material = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+  const material = addSnow(new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }));
   const mesh = new THREE.Mesh(painted, material);
   mesh.receiveShadow = true;
   return mesh;

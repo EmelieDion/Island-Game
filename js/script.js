@@ -8,13 +8,14 @@ import { createSky } from './objects/sky.js';
 import { createDayCycle } from './systems/dayCycle.js';
 import { createRain } from './objects/rain.js';
 import { createSnow } from './objects/snow.js';
+import { snowCover } from './systems/snowCover.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
 let seaMesh, seaUpdate, sky;
 let sun, moon, hemisphereLight, setHouseBrightness;
 let rain, snow;
-const weather = { rainTarget: 0, rain: 0, snowTarget: 0, snow: 0, windTarget: 0.15, wind: 0.15 };
+const weather = { rainTarget: 0, rain: 0, snowTarget: 0, snow: 0, snowCover: 0, windTarget: 0.15, wind: 0.15 };
 const wind = new THREE.Vector2();
 const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
@@ -167,6 +168,13 @@ const draw = () => {
   weather.rain += (weather.rainTarget - weather.rain) * Math.min(1, deltaTime * 1.5);
   weather.snow += (weather.snowTarget - weather.snow) * Math.min(1, deltaTime * 1.5);
   weather.wind += (weather.windTarget - weather.wind) * Math.min(1, deltaTime * 1.5);
+  if (weather.snow > 0.05) {
+    weather.snowCover = Math.min(1, weather.snowCover + weather.snow * deltaTime * 0.1);
+  } else {
+    const melt = 0.02 + dayCycle.state.day * 0.04 + weather.rain * 0.1;
+    weather.snowCover = Math.max(0, weather.snowCover - melt * deltaTime);
+  }
+  snowCover.value = weather.snowCover;
   const windAngle = 0.3 + Math.sin(timer.getElapsed() * 0.05) * 0.6;
   wind.set(Math.cos(windAngle), Math.sin(windAngle)).multiplyScalar(weather.wind * 9);
   updateLights();
