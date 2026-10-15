@@ -139,7 +139,9 @@ const init = async () => {
   await sky.compile(renderer, camera);
 
   renderer.setAnimationLoop(draw);
-  document.getElementById('loader').classList.add('is-done');
+  const $loader = document.getElementById('loader');
+  $loader.addEventListener('transitionend', () => $loader.remove());
+  $loader.classList.add('is-done');
 };
 
 const updateLights = () => {
