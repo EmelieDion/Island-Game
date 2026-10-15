@@ -30,19 +30,26 @@ const groundUnder = (x, z, radius) => {
   return ground;
 };
 
+const isGoodSpot = (x, z, spots) => {
+  if (terrainHeight(x, z) < 0.7) return false;
+  if (Math.hypot(x - VILLAGE.x, z - VILLAGE.y) < 4.2) return false;
+  if (Math.hypot(x - WINDMILL.x, z - WINDMILL.y) < 2.2) return false;
+  return !spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 2.2);
+};
+
 const findTreeSpots = () => {
   const random = createRandom(7);
   const spots = [];
-  for (let tries = 0; spots.length < TREE_COUNT && tries < 2000; tries++) {
-    const angle = random() * Math.PI * 2;
-    const distance = 3 + random() * 9;
-    const x = Math.cos(angle) * distance;
-    const z = Math.sin(angle) * distance;
-    if (terrainHeight(x, z) < 0.9) continue;
-    if (Math.hypot(x - VILLAGE.x, z - VILLAGE.y) < 4.5) continue;
-    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.y) < 2.2) continue;
-    if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 1.6)) continue;
-    spots.push({ x, z, type: random() < 0.5 ? 0 : 1, scale: 0.8 + random() * 0.5, rotation: random() * Math.PI * 2 });
+  for (let i = 0; i < TREE_COUNT; i++) {
+    for (let tries = 0; tries < 80; tries++) {
+      const angle = ((i + random()) / TREE_COUNT) * Math.PI * 2;
+      const distance = 3.5 + random() * 8;
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      if (!isGoodSpot(x, z, spots)) continue;
+      spots.push({ x, z, type: random() < 0.5 ? 0 : 1, scale: 0.8 + random() * 0.5, rotation: random() * Math.PI * 2 });
+      break;
+    }
   }
   return spots;
 };
@@ -62,8 +69,7 @@ export const loadScenery = async (scene, physics, breakables) => {
     tree.rotation.y = spot.rotation;
     tree.position.set(spot.x, groundUnder(spot.x, spot.z, 0.25) - 0.05, spot.z);
     scene.add(tree);
-    tree.updateMatrixWorld(true);
-    breakables.addStatic(tree, 0.35);
+    breakables.addTree(tree);
   });
 
   const boat = fitToSize(boatModel.scene, 2.4, 'height');

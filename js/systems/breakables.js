@@ -19,6 +19,40 @@ export const createBreakables = (physics, scene) => {
   const pieceByCollider = new Map();
   let now = 0;
 
+  const addPiece = (record, object, isRoof) => {
+    object.matrixWorld.decompose(position, quaternion, scale);
+    scene.attach(object);
+
+    const body = world.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed()
+        .setTranslation(position.x, position.y, position.z)
+        .setRotation(quaternion),
+    );
+    const collider = world.createCollider(
+      RAPIER.ColliderDesc.cuboid(size.x / 2, size.y / 2, size.z / 2)
+        .setTranslation(center.x, center.y, center.z)
+        .setDensity(0.6)
+        .setFriction(0.8)
+        .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+      body,
+    );
+
+    const piece = {
+      mesh: object,
+      body,
+      collider,
+      house: record,
+      broken: false,
+      isRoof,
+      home: { position: position.clone(), quaternion: quaternion.clone() },
+      from: { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() },
+    };
+    record.pieces.push(piece);
+    pieceByCollider.set(collider.handle, piece);
+  };
+
+  const createRecord = (toughness) => ({ pieces: [], toughness, lastHit: -Infinity, repairing: false, repairStart: 0, fast: false });
+
   const addHouse = (house) => {
     house.updateMatrixWorld(true);
     const meshes = [];
@@ -26,44 +60,32 @@ export const createBreakables = (physics, scene) => {
       if (child.isMesh && (child.name.startsWith('Cube') || child.name.startsWith('Cylinder'))) meshes.push(child);
     });
 
-    const record = { pieces: [], lastHit: -Infinity, repairing: false, repairStart: 0, fast: false };
-
+    const record = createRecord(1);
     meshes.forEach((mesh) => {
       mesh.matrixWorld.decompose(position, quaternion, scale);
       mesh.geometry.computeBoundingBox();
       mesh.geometry.boundingBox.getSize(size).multiply(scale);
       mesh.geometry.boundingBox.getCenter(center).multiply(scale);
-      scene.attach(mesh);
-
-      const body = world.createRigidBody(
-        RAPIER.RigidBodyDesc.fixed()
-          .setTranslation(position.x, position.y, position.z)
-          .setRotation(quaternion),
-      );
-      const collider = world.createCollider(
-        RAPIER.ColliderDesc.cuboid(size.x / 2, size.y / 2, size.z / 2)
-          .setTranslation(center.x, center.y, center.z)
-          .setDensity(0.6)
-          .setFriction(0.8)
-          .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
-        body,
-      );
-
-      const piece = {
-        mesh,
-        body,
-        collider,
-        house: record,
-        broken: false,
-        isRoof: mesh.name.startsWith('Cylinder'),
-        home: { position: position.clone(), quaternion: quaternion.clone() },
-        from: { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() },
-      };
-      record.pieces.push(piece);
-      pieceByCollider.set(collider.handle, piece);
+      addPiece(record, mesh, mesh.name.startsWith('Cylinder'));
     });
 
     record.pieces.sort((a, b) => a.home.position.y - b.home.position.y);
+    houses.push(record);
+  };
+
+  const addTree = (tree) => {
+    tree.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(tree);
+    box.getSize(size);
+    size.x *= 0.5;
+    size.z *= 0.5;
+    tree.matrixWorld.decompose(position, quaternion, scale);
+    box.getCenter(center).sub(position).applyQuaternion(quaternion.clone().invert());
+    size.y -= 0.3;
+    center.y += 0.15;
+
+    const record = createRecord(2.5);
+    addPiece(record, tree, false);
     houses.push(record);
   };
 
@@ -81,13 +103,12 @@ export const createBreakables = (physics, scene) => {
   const breakPiece = (piece, velocity, power) => {
     piece.broken = true;
     piece.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
-    const mass = piece.collider.mass();
-    const push = new THREE.Vector3(velocity.x, velocity.y, velocity.z).normalize().multiplyScalar(mass * 2.5 * power);
-    piece.body.applyImpulse({ x: push.x, y: push.y + mass * 2, z: push.z }, true);
-    piece.body.applyTorqueImpulse({
-      x: (Math.random() - 0.5) * mass * 0.2,
-      y: (Math.random() - 0.5) * mass * 0.2,
-      z: (Math.random() - 0.5) * mass * 0.2,
+    const push = new THREE.Vector3(velocity.x, velocity.y, velocity.z).normalize().multiplyScalar(1.5 + power * 1.5);
+    piece.body.setLinvel({ x: push.x, y: Math.max(push.y, 0) + 1.5 + power, z: push.z }, true);
+    piece.body.setAngvel({
+      x: (Math.random() - 0.5) * 3 * power,
+      y: (Math.random() - 0.5) * 3 * power,
+      z: (Math.random() - 0.5) * 3 * power,
     }, true);
   };
 
@@ -136,7 +157,7 @@ export const createBreakables = (physics, scene) => {
     if (!piece || !item || item.rewind) return;
     const velocity = item.velocityBefore || item.body.linvel();
     const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
-    if (speed * item.power < BREAK_FORCE) return;
+    if (speed * item.power < BREAK_FORCE * piece.house.toughness) return;
     breakAround(piece.house, piece, velocity, item.power);
   });
 
@@ -204,5 +225,5 @@ export const createBreakables = (physics, scene) => {
     });
   };
 
-  return { addHouse, addStatic, rewind, update };
+  return { addHouse, addTree, addStatic, rewind, update };
 };
