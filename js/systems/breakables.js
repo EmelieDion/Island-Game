@@ -89,6 +89,37 @@ export const createBreakables = (physics, scene) => {
     houses.push(record);
   };
 
+  const addWindmill = (windmill, blades) => {
+    windmill.updateMatrixWorld(true);
+    const record = createRecord(1.5);
+
+    ['Molen_Toren', 'Molen_Hoedje'].forEach((name) => {
+      const mesh = windmill.getObjectByName(name);
+      mesh.matrixWorld.decompose(position, quaternion, scale);
+      mesh.geometry.computeBoundingBox();
+      mesh.geometry.boundingBox.getSize(size).multiply(scale);
+      mesh.geometry.boundingBox.getCenter(center).multiply(scale);
+      addPiece(record, mesh, name === 'Molen_Hoedje');
+    });
+
+    const box = new THREE.Box3().setFromObject(blades.model);
+    box.getSize(size);
+    blades.model.matrixWorld.decompose(position, quaternion, scale);
+    box.getCenter(center).sub(position).applyQuaternion(quaternion.clone().invert());
+    size.applyQuaternion(quaternion.clone().invert());
+    size.set(Math.abs(size.x), Math.abs(size.y), Math.abs(size.z));
+    addPiece(record, blades.model, true);
+    record.pieces[record.pieces.length - 1].follow = blades.target;
+
+    record.pieces.sort((a, b) => a.home.position.y - b.home.position.y);
+    houses.push(record);
+  };
+
+  const followTarget = (piece) => {
+    piece.follow.updateWorldMatrix(true, false);
+    piece.follow.matrixWorld.decompose(piece.home.position, piece.home.quaternion, scale);
+  };
+
   const addStatic = (object, shrink = 1) => {
     const box = new THREE.Box3().setFromObject(object);
     box.getSize(size);
@@ -181,6 +212,7 @@ export const createBreakables = (physics, scene) => {
     const gap = house.fast ? FAST_REPAIR_GAP : PIECE_REPAIR_GAP;
     let done = true;
     broken.forEach((piece, index) => {
+      if (piece.follow) followTarget(piece);
       const t = THREE.MathUtils.clamp((now - house.repairStart - index * gap) / pieceTime, 0, 1);
       const eased = t * t * (3 - 2 * t);
       position.lerpVectors(piece.from.position, piece.home.position, eased);
@@ -217,6 +249,14 @@ export const createBreakables = (physics, scene) => {
     houses.forEach((house) => {
       repair(house);
       house.pieces.forEach((piece) => {
+        if (!piece.broken && piece.follow) {
+          followTarget(piece);
+          piece.mesh.position.copy(piece.home.position);
+          piece.mesh.quaternion.copy(piece.home.quaternion);
+          piece.body.setTranslation(piece.home.position, true);
+          piece.body.setRotation(piece.home.quaternion, true);
+          return;
+        }
         if (!piece.broken) return;
         const translation = piece.body.translation();
         piece.mesh.position.set(translation.x, translation.y, translation.z);
@@ -225,5 +265,5 @@ export const createBreakables = (physics, scene) => {
     });
   };
 
-  return { addHouse, addTree, addStatic, rewind, update };
+  return { addHouse, addTree, addWindmill, addStatic, rewind, update };
 };

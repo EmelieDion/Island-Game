@@ -7,6 +7,7 @@ import { addSnow } from '../systems/snowCover.js';
 const TREE_COUNT = 12;
 const BOAT_DISTANCE = 19;
 const BOAT_SPEED = 0.04;
+const FRONT = new THREE.Vector2(19, 22).normalize();
 
 const createRandom = (seed) => () => {
   seed = (seed * 16807) % 2147483647;
@@ -31,6 +32,7 @@ const groundUnder = (x, z, radius) => {
 };
 
 const isGoodSpot = (x, z, spots) => {
+  if ((x * FRONT.x + z * FRONT.y) / Math.hypot(x, z) > 0.2) return false;
   if (terrainHeight(x, z) < 0.7) return false;
   if (Math.hypot(x - VILLAGE.x, z - VILLAGE.y) < 4.2) return false;
   if (Math.hypot(x - WINDMILL.x, z - WINDMILL.y) < 2.2) return false;

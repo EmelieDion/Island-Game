@@ -89,7 +89,7 @@ const init = async () => {
   hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
   scene.add(hemisphereLight);
 
-  const { createHouse, setBrightness, windmill, updateWindmill: windmillUpdate } = await loadModels();
+  const { createHouse, setBrightness, windmill, blades, updateWindmill: windmillUpdate } = await loadModels();
   setHouseBrightness = setBrightness;
   updateWindmill = windmillUpdate;
 
@@ -118,10 +118,7 @@ const init = async () => {
   windmill.position.set(WINDMILL.x, windmillBase - 0.05, WINDMILL.y);
   windmill.rotation.y = -0.6;
   scene.add(windmill);
-  windmill.updateMatrixWorld(true);
-  windmill.traverse((child) => {
-    if (child.name === 'Molen_Toren') breakables.addStatic(child);
-  });
+  breakables.addWindmill(windmill, blades);
 
   scenery = await loadScenery(scene, physics, breakables);
 

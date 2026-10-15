@@ -78,6 +78,14 @@ export const loadModels = async () => {
   };
 
   const windmillModel = fitToSize(windmill, 3.4, 'height');
+  const bladesModel = windmillModel.getObjectByName('Molen_As');
+  const bladesTarget = new THREE.Object3D();
+  bladesTarget.position.copy(bladesModel.position);
+  bladesTarget.quaternion.copy(bladesModel.quaternion);
+  bladesTarget.scale.copy(bladesModel.scale);
+  bladesModel.parent.add(bladesTarget);
+  bladesModel.name = 'Molen_Wieken';
+  bladesTarget.name = 'Molen_As';
   const mixer = new THREE.AnimationMixer(windmillModel);
   const bladesClip = gltf.animations.find((clip) => clip.name.startsWith('Molen')) || gltf.animations[0];
   const blades = bladesClip ? mixer.clipAction(bladesClip).play() : null;
@@ -92,6 +100,7 @@ export const loadModels = async () => {
     createHouse,
     setBrightness,
     windmill: windmillModel,
+    blades: { model: bladesModel, target: bladesTarget },
     updateWindmill,
   };
 };
