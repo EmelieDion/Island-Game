@@ -4,7 +4,7 @@ import { addSnow } from '../systems/snowCover.js';
 
 const WALL_BRIGHTNESS = 3.5;
 
-const fitToSize = (group, size, axis = 'width') => {
+export const fitToSize = (group, size, axis = 'width') => {
   const box = new THREE.Box3().setFromObject(group);
   const dimensions = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
@@ -29,7 +29,7 @@ const prepare = (group) => {
 };
 
 export const loadModels = async () => {
-  const gltf = await new GLTFLoader().loadAsync('assets/island-game-assets.glb');
+  const gltf = await new GLTFLoader().loadAsync('assets/island-game-assets-animation.glb');
 
   const bakedTexture = await new THREE.TextureLoader().loadAsync('assets/island-game-assets.jpg');
   bakedTexture.flipY = false;
@@ -77,9 +77,21 @@ export const loadModels = async () => {
     });
   };
 
+  const windmillModel = fitToSize(windmill, 3.4, 'height');
+  const mixer = new THREE.AnimationMixer(windmillModel);
+  const bladesClip = gltf.animations.find((clip) => clip.name.startsWith('Molen')) || gltf.animations[0];
+  const blades = bladesClip ? mixer.clipAction(bladesClip).play() : null;
+
+  const updateWindmill = (deltaTime, wind) => {
+    if (!blades) return;
+    blades.timeScale = 0.15 + wind * 2.2;
+    mixer.update(deltaTime);
+  };
+
   return {
     createHouse,
     setBrightness,
-    windmill: fitToSize(windmill, 3.4, 'height'),
+    windmill: windmillModel,
+    updateWindmill,
   };
 };

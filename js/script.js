@@ -14,11 +14,12 @@ import { createBeachBall, BEACH_BALL_RADIUS } from './objects/beachBall.js';
 import { createBreakables } from './systems/breakables.js';
 import { createBarrel, BARREL_RADIUS, BARREL_HEIGHT } from './objects/barrel.js';
 import { createRock, ROCK_SIZE } from './objects/rock.js';
+import { loadScenery } from './objects/scenery.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
 let seaMesh, seaUpdate, sky;
-let sun, moon, hemisphereLight, setHouseBrightness;
+let sun, moon, hemisphereLight, setHouseBrightness, updateWindmill;
 let rain, snow;
 const weather = { rainTarget: 0, rain: 0, snowTarget: 0, snow: 0, snowCover: 0, windTarget: 0.15, wind: 0.15 };
 const wind = new THREE.Vector2();
@@ -26,7 +27,7 @@ const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
-let physics, waterHeight, breakables;
+let physics, waterHeight, breakables, scenery;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerStart = null;
@@ -88,8 +89,9 @@ const init = async () => {
   hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
   scene.add(hemisphereLight);
 
-  const { createHouse, setBrightness, windmill } = await loadModels();
+  const { createHouse, setBrightness, windmill, updateWindmill: windmillUpdate } = await loadModels();
   setHouseBrightness = setBrightness;
+  updateWindmill = windmillUpdate;
 
   const houses = [
     { x: -1.9, z: -1.7, rotation: 0.2, tint: 0xffffff },
@@ -120,6 +122,8 @@ const init = async () => {
   windmill.traverse((child) => {
     if (child.name === 'Molen_Toren') breakables.addStatic(child);
   });
+
+  scenery = await loadScenery(scene, physics, breakables);
 
   const $time = document.getElementById('time');
   const $timeOutput = document.getElementById('timeOutput');
@@ -297,6 +301,8 @@ const draw = () => {
 
   physics.update(deltaTime, waterHeight);
   breakables.update(timer.getElapsed());
+  scenery.update(timer.getElapsed(), waterHeight);
+  updateWindmill(deltaTime, weather.wind);
 
   controls.update();
   renderer.render(scene, camera);

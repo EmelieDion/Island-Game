@@ -67,12 +67,12 @@ export const createBreakables = (physics, scene) => {
     houses.push(record);
   };
 
-  const addStatic = (object) => {
+  const addStatic = (object, shrink = 1) => {
     const box = new THREE.Box3().setFromObject(object);
     box.getSize(size);
     box.getCenter(center);
     world.createCollider(
-      RAPIER.ColliderDesc.cuboid(size.x / 2, size.y / 2, size.z / 2)
+      RAPIER.ColliderDesc.cuboid((size.x / 2) * shrink, size.y / 2, (size.z / 2) * shrink)
         .setTranslation(center.x, center.y, center.z)
         .setFriction(0.8),
     );
