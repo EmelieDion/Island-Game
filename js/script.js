@@ -167,7 +167,9 @@ const init = async () => {
   window.addEventListener('keydown', (e) => {
     const tool = { 1: 'ball', 2: 'barrel', 3: 'rock' }[e.key];
     if (tool) selectTool(tool);
+    if (e.key === 'r' || e.key === 'R') pullLever();
   });
+  document.getElementById('lever').addEventListener('click', pullLever);
 
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
@@ -227,6 +229,15 @@ const throwProjectile = (e) => {
   physics.add(mesh, type.collider(mesh), { position, velocity, spin, size: type.size, floatiness: type.floatiness, power: type.power });
 
   if (physics.items.length > MAX_PROJECTILES) physics.remove(physics.items[0]);
+};
+
+const pullLever = () => {
+  const $lever = document.getElementById('lever');
+  if ($lever.classList.contains('is-pulled')) return;
+  physics.rewind();
+  breakables.rewind();
+  $lever.classList.add('is-pulled');
+  setTimeout(() => $lever.classList.remove('is-pulled'), 1400);
 };
 
 const selectTool = (tool) => {

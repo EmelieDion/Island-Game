@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 
 const STEP = 1 / 60;
+const REWIND_TIME = 1.2;
 const SEA_RADIUS = 30;
 
 export const createPhysics = async (terrain) => {
@@ -17,6 +18,7 @@ export const createPhysics = async (terrain) => {
   const collisionListeners = [];
   const eventQueue = new RAPIER.EventQueue(true);
   let accumulator = 0;
+  let clock = 0;
 
   const add = (mesh, colliderDesc, { position, velocity, spin = { x: 0, y: 0, z: 0 }, size, floatiness, power = 1 }) => {
     const body = world.createRigidBody(
@@ -27,7 +29,7 @@ export const createPhysics = async (terrain) => {
         .setCcdEnabled(true),
     );
     const collider = world.createCollider(colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS), body);
-    const item = { mesh, body, collider, size, floatiness, power };
+    const item = { mesh, body, collider, size, floatiness, power, spawn: { x: position.x, y: position.y, z: position.z }, rewind: null };
     items.push(item);
     itemByCollider.set(collider.handle, item);
     return item;
@@ -41,6 +43,7 @@ export const createPhysics = async (terrain) => {
   };
 
   const float = (item, waterHeight) => {
+    if (item.rewind) return;
     const position = item.body.translation();
     const inSea = Math.hypot(position.x, position.z) < SEA_RADIUS;
     const depth = waterHeight(position.x, position.z) - (position.y - item.size);
@@ -56,8 +59,34 @@ export const createPhysics = async (terrain) => {
     item.body.setAngularDamping(1.5);
   };
 
+  const rewind = () => {
+    items.forEach((item) => {
+      if (item.rewind) return;
+      const position = item.body.translation();
+      item.rewind = { from: { x: position.x, y: position.y, z: position.z }, start: clock };
+      item.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+    });
+  };
+
+  const moveBack = (item) => {
+    const t = Math.min((clock - item.rewind.start) / REWIND_TIME, 1);
+    const eased = t * t * (3 - 2 * t);
+    const { from } = item.rewind;
+    const to = item.spawn;
+    item.body.setNextKinematicTranslation({
+      x: from.x + (to.x - from.x) * eased,
+      y: from.y + (to.y - from.y) * eased + Math.sin(t * Math.PI) * 3,
+      z: from.z + (to.z - from.z) * eased,
+    });
+    return t >= 1;
+  };
+
   const update = (deltaTime, waterHeight) => {
     accumulator += Math.min(deltaTime, 0.1);
+    clock += Math.min(deltaTime, 0.1);
+    [...items].forEach((item) => {
+      if (item.rewind && moveBack(item)) remove(item);
+    });
     while (accumulator >= STEP) {
       items.forEach((item) => {
         float(item, waterHeight);
@@ -83,5 +112,5 @@ export const createPhysics = async (terrain) => {
 
   const onCollision = (listener) => collisionListeners.push(listener);
 
-  return { RAPIER, world, items, itemByCollider, add, remove, update, onCollision };
+  return { RAPIER, world, items, itemByCollider, add, remove, rewind, update, onCollision };
 };

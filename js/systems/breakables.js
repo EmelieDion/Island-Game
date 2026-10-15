@@ -4,6 +4,8 @@ const BREAK_FORCE = 4;
 const REPAIR_DELAY = 6;
 const PIECE_REPAIR_TIME = 1.2;
 const PIECE_REPAIR_GAP = 0.15;
+const FAST_REPAIR_TIME = 0.7;
+const FAST_REPAIR_GAP = 0.04;
 
 const position = new THREE.Vector3();
 const quaternion = new THREE.Quaternion();
@@ -24,7 +26,7 @@ export const createBreakables = (physics, scene) => {
       if (child.isMesh && (child.name.startsWith('Cube') || child.name.startsWith('Cylinder'))) meshes.push(child);
     });
 
-    const record = { pieces: [], lastHit: -Infinity, repairing: false, repairStart: 0 };
+    const record = { pieces: [], lastHit: -Infinity, repairing: false, repairStart: 0, fast: false };
 
     meshes.forEach((mesh) => {
       mesh.matrixWorld.decompose(position, quaternion, scale);
@@ -131,7 +133,7 @@ export const createBreakables = (physics, scene) => {
   physics.onCollision((handle1, handle2) => {
     const piece = pieceByCollider.get(handle1) || pieceByCollider.get(handle2);
     const item = physics.itemByCollider.get(handle1) || physics.itemByCollider.get(handle2);
-    if (!piece || !item) return;
+    if (!piece || !item || item.rewind) return;
     const velocity = item.velocityBefore || item.body.linvel();
     const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
     if (speed * item.power < BREAK_FORCE) return;
@@ -142,7 +144,7 @@ export const createBreakables = (physics, scene) => {
     const broken = house.pieces.filter((piece) => piece.broken);
     if (!broken.length) return;
 
-    if (!house.repairing && now - house.lastHit > REPAIR_DELAY) {
+    if (!house.repairing && (house.fast || now - house.lastHit > REPAIR_DELAY)) {
       house.repairing = true;
       house.repairStart = now;
       broken.forEach((piece) => {
@@ -154,9 +156,11 @@ export const createBreakables = (physics, scene) => {
 
     if (!house.repairing) return;
 
+    const pieceTime = house.fast ? FAST_REPAIR_TIME : PIECE_REPAIR_TIME;
+    const gap = house.fast ? FAST_REPAIR_GAP : PIECE_REPAIR_GAP;
     let done = true;
     broken.forEach((piece, index) => {
-      const t = THREE.MathUtils.clamp((now - house.repairStart - index * PIECE_REPAIR_GAP) / PIECE_REPAIR_TIME, 0, 1);
+      const t = THREE.MathUtils.clamp((now - house.repairStart - index * gap) / pieceTime, 0, 1);
       const eased = t * t * (3 - 2 * t);
       position.lerpVectors(piece.from.position, piece.home.position, eased);
       quaternion.slerpQuaternions(piece.from.quaternion, piece.home.quaternion, eased);
@@ -175,7 +179,16 @@ export const createBreakables = (physics, scene) => {
         piece.broken = false;
       });
       house.repairing = false;
+      house.fast = false;
     }
+  };
+
+  const rewind = () => {
+    houses.forEach((house) => {
+      if (!house.pieces.some((piece) => piece.broken)) return;
+      house.fast = true;
+      house.repairing = false;
+    });
   };
 
   const update = (elapsedTime) => {
@@ -191,5 +204,5 @@ export const createBreakables = (physics, scene) => {
     });
   };
 
-  return { addHouse, addStatic, update };
+  return { addHouse, addStatic, rewind, update };
 };
