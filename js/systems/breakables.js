@@ -75,11 +75,11 @@ export const createBreakables = (physics, scene) => {
     );
   };
 
-  const breakPiece = (piece, velocity) => {
+  const breakPiece = (piece, velocity, power) => {
     piece.broken = true;
     piece.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
     const mass = piece.body.mass();
-    const push = new THREE.Vector3(velocity.x, velocity.y, velocity.z).normalize().multiplyScalar(mass * 3);
+    const push = new THREE.Vector3(velocity.x, velocity.y, velocity.z).normalize().multiplyScalar(mass * 2 * power);
     piece.body.applyImpulse({ x: push.x, y: push.y + mass * 2, z: push.z }, true);
     piece.body.applyTorqueImpulse({
       x: (Math.random() - 0.5) * mass * 0.2,
@@ -88,7 +88,7 @@ export const createBreakables = (physics, scene) => {
     }, true);
   };
 
-  const breakAround = (house, hitPiece, point, velocity) => {
+  const breakAround = (house, hitPiece, point, velocity, power) => {
     if (house.repairing) {
       house.pieces.filter((piece) => piece.broken).forEach((piece) => {
         piece.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
@@ -99,7 +99,7 @@ export const createBreakables = (physics, scene) => {
 
     const toBreak = new Set([hitPiece]);
     house.pieces.forEach((piece) => {
-      if (!piece.broken && piece.mesh.position.distanceTo(point) < 0.75) toBreak.add(piece);
+      if (!piece.broken && piece.mesh.position.distanceTo(point) < 0.45 + power * 0.25) toBreak.add(piece);
     });
 
     let changed = true;
@@ -123,7 +123,7 @@ export const createBreakables = (physics, scene) => {
     }
 
     toBreak.forEach((piece) => {
-      if (!piece.broken) breakPiece(piece, velocity);
+      if (!piece.broken) breakPiece(piece, velocity, power);
     });
   };
 
@@ -134,7 +134,7 @@ export const createBreakables = (physics, scene) => {
     const velocity = item.body.linvel();
     const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
     if (speed * item.power < BREAK_FORCE) return;
-    breakAround(piece.house, piece, item.body.translation(), velocity);
+    breakAround(piece.house, piece, item.body.translation(), velocity, item.power);
   });
 
   const repair = (house) => {

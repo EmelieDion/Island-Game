@@ -12,6 +12,8 @@ import { snowCover } from './systems/snowCover.js';
 import { createPhysics } from './systems/physics.js';
 import { createBeachBall, BEACH_BALL_RADIUS } from './objects/beachBall.js';
 import { createBreakables } from './systems/breakables.js';
+import { createBarrel, BARREL_RADIUS, BARREL_HEIGHT } from './objects/barrel.js';
+import { createRock, ROCK_SIZE } from './objects/rock.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -28,7 +30,8 @@ let physics, waterHeight, breakables;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerStart = null;
-const MAX_BALLS = 40;
+const MAX_PROJECTILES = 40;
+let selectedTool = 'ball';
 
 const init = async () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false, antialias: true });
@@ -151,7 +154,15 @@ const init = async () => {
     if (!pointerStart) return;
     const moved = Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y);
     pointerStart = null;
-    if (moved < 6) throwBall(e);
+    if (moved < 6) throwProjectile(e);
+  });
+
+  document.querySelectorAll('.tool').forEach(($button) => {
+    $button.addEventListener('click', () => selectTool($button.dataset.tool));
+  });
+  window.addEventListener('keydown', (e) => {
+    const tool = { 1: 'ball', 2: 'barrel', 3: 'rock' }[e.key];
+    if (tool) selectTool(tool);
   });
 
   window.addEventListener('mousemove', (e) => {
@@ -171,19 +182,54 @@ const init = async () => {
   $loader.classList.add('is-done');
 };
 
-const throwBall = (e) => {
+const projectiles = {
+  ball: {
+    create: createBeachBall,
+    collider: () => physics.RAPIER.ColliderDesc.ball(BEACH_BALL_RADIUS).setDensity(0.15).setRestitution(0.75).setFriction(0.6),
+    size: BEACH_BALL_RADIUS,
+    floatiness: 4,
+    power: 0.6,
+    speed: 16,
+  },
+  barrel: {
+    create: createBarrel,
+    collider: () => physics.RAPIER.ColliderDesc.cylinder(BARREL_HEIGHT / 2, BARREL_RADIUS * 1.1).setDensity(0.8).setRestitution(0.2).setFriction(0.7),
+    size: BARREL_HEIGHT / 2,
+    floatiness: 1.8,
+    power: 1.6,
+    speed: 15,
+  },
+  rock: {
+    create: createRock,
+    collider: (mesh) => physics.RAPIER.ColliderDesc.convexHull(mesh.geometry.attributes.position.array).setDensity(2.5).setRestitution(0.1).setFriction(0.9),
+    size: ROCK_SIZE,
+    floatiness: 0.3,
+    power: 3,
+    speed: 14,
+  },
+};
+
+const throwProjectile = (e) => {
+  const type = projectiles[selectedTool];
   pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
   const direction = raycaster.ray.direction;
   const position = camera.position.clone().addScaledVector(direction, 1.5);
-  const velocity = direction.clone().multiplyScalar(16).add(new THREE.Vector3(0, 2, 0));
+  const velocity = direction.clone().multiplyScalar(type.speed).add(new THREE.Vector3(0, 2, 0));
+  const spin = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6, z: (Math.random() - 0.5) * 6 };
 
-  const mesh = createBeachBall();
+  const mesh = type.create();
   scene.add(mesh);
-  const collider = physics.RAPIER.ColliderDesc.ball(BEACH_BALL_RADIUS).setDensity(0.15).setRestitution(0.75).setFriction(0.6);
-  physics.add(mesh, collider, { position, velocity, size: BEACH_BALL_RADIUS, floatiness: 4, power: 0.6 });
+  physics.add(mesh, type.collider(mesh), { position, velocity, spin, size: type.size, floatiness: type.floatiness, power: type.power });
 
-  if (physics.items.length > MAX_BALLS) physics.remove(physics.items[0]);
+  if (physics.items.length > MAX_PROJECTILES) physics.remove(physics.items[0]);
+};
+
+const selectTool = (tool) => {
+  selectedTool = tool;
+  document.querySelectorAll('.tool').forEach(($button) => {
+    $button.classList.toggle('is-active', $button.dataset.tool === tool);
+  });
 };
 
 const updateLights = () => {

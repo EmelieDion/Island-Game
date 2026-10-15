@@ -18,11 +18,12 @@ export const createPhysics = async (terrain) => {
   const eventQueue = new RAPIER.EventQueue(true);
   let accumulator = 0;
 
-  const add = (mesh, colliderDesc, { position, velocity, size, floatiness, power = 1 }) => {
+  const add = (mesh, colliderDesc, { position, velocity, spin = { x: 0, y: 0, z: 0 }, size, floatiness, power = 1 }) => {
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(position.x, position.y, position.z)
         .setLinvel(velocity.x, velocity.y, velocity.z)
+        .setAngvel(spin)
         .setCcdEnabled(true),
     );
     const collider = world.createCollider(colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS), body);
