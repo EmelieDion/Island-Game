@@ -13,22 +13,27 @@ export const createPhysics = async (terrain) => {
   world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices).setFriction(0.9));
 
   const items = [];
+  const itemByCollider = new Map();
+  const collisionListeners = [];
+  const eventQueue = new RAPIER.EventQueue(true);
   let accumulator = 0;
 
-  const add = (mesh, colliderDesc, { position, velocity, size, floatiness }) => {
+  const add = (mesh, colliderDesc, { position, velocity, size, floatiness, power = 1 }) => {
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(position.x, position.y, position.z)
         .setLinvel(velocity.x, velocity.y, velocity.z)
         .setCcdEnabled(true),
     );
-    world.createCollider(colliderDesc, body);
-    const item = { mesh, body, size, floatiness };
+    const collider = world.createCollider(colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS), body);
+    const item = { mesh, body, collider, size, floatiness, power };
     items.push(item);
+    itemByCollider.set(collider.handle, item);
     return item;
   };
 
   const remove = (item) => {
+    itemByCollider.delete(item.collider.handle);
     world.removeRigidBody(item.body);
     item.mesh.removeFromParent();
     items.splice(items.indexOf(item), 1);
@@ -54,7 +59,10 @@ export const createPhysics = async (terrain) => {
     accumulator += Math.min(deltaTime, 0.1);
     while (accumulator >= STEP) {
       items.forEach((item) => float(item, waterHeight));
-      world.step();
+      world.step(eventQueue);
+      eventQueue.drainCollisionEvents((handle1, handle2, started) => {
+        if (started) collisionListeners.forEach((listener) => listener(handle1, handle2));
+      });
       accumulator -= STEP;
     }
 
@@ -69,5 +77,7 @@ export const createPhysics = async (terrain) => {
     });
   };
 
-  return { RAPIER, items, add, remove, update };
+  const onCollision = (listener) => collisionListeners.push(listener);
+
+  return { RAPIER, world, items, itemByCollider, add, remove, update, onCollision };
 };

@@ -11,6 +11,7 @@ import { createSnow } from './objects/snow.js';
 import { snowCover } from './systems/snowCover.js';
 import { createPhysics } from './systems/physics.js';
 import { createBeachBall, BEACH_BALL_RADIUS } from './objects/beachBall.js';
+import { createBreakables } from './systems/breakables.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -23,7 +24,7 @@ const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
-let physics, waterHeight;
+let physics, waterHeight, breakables;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerStart = null;
@@ -59,6 +60,7 @@ const init = async () => {
   scene.add(islandMesh);
 
   physics = await createPhysics(terrain);
+  breakables = createBreakables(physics, scene);
 
   rain = createRain();
   scene.add(rain.mesh);
@@ -101,11 +103,16 @@ const init = async () => {
     house.position.set(px, terrainHeight(px, pz) - 0.05, pz);
     house.rotation.y = rotation;
     scene.add(house);
+    breakables.addHouse(house);
   });
 
   windmill.position.set(WINDMILL.x, terrainHeight(WINDMILL.x, WINDMILL.y) - 0.1, WINDMILL.y);
   windmill.rotation.y = -0.6;
   scene.add(windmill);
+  windmill.updateMatrixWorld(true);
+  windmill.traverse((child) => {
+    if (child.name === 'Molen_Toren') breakables.addStatic(child);
+  });
 
   const $time = document.getElementById('time');
   const $timeOutput = document.getElementById('timeOutput');
@@ -174,7 +181,7 @@ const throwBall = (e) => {
   const mesh = createBeachBall();
   scene.add(mesh);
   const collider = physics.RAPIER.ColliderDesc.ball(BEACH_BALL_RADIUS).setDensity(0.15).setRestitution(0.75).setFriction(0.6);
-  physics.add(mesh, collider, { position, velocity, size: BEACH_BALL_RADIUS, floatiness: 4 });
+  physics.add(mesh, collider, { position, velocity, size: BEACH_BALL_RADIUS, floatiness: 4, power: 0.6 });
 
   if (physics.items.length > MAX_BALLS) physics.remove(physics.items[0]);
 };
@@ -228,6 +235,7 @@ const draw = () => {
   snow.update(renderer, weather.snow, wind, deltaTime, timer.getElapsed(), particleBrightness);
 
   physics.update(deltaTime, waterHeight);
+  breakables.update(timer.getElapsed());
 
   controls.update();
   renderer.render(scene, camera);
