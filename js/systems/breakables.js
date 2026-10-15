@@ -236,6 +236,23 @@ export const createBreakables = (physics, scene) => {
     }
   };
 
+  const blast = (point, radius, getVelocity, power, onlyLoose = false) => {
+    houses.forEach((house) => {
+      let nearest = null;
+      let nearestDistance = radius;
+      house.pieces.forEach((piece) => {
+        if (piece.broken) return;
+        if (onlyLoose && !piece.isRoof && house.toughness < 2) return;
+        const distance = piece.home.position.distanceTo(point);
+        if (distance < nearestDistance) {
+          nearest = piece;
+          nearestDistance = distance;
+        }
+      });
+      if (nearest) breakAround(house, nearest, getVelocity(nearest.home.position), power);
+    });
+  };
+
   const rewind = () => {
     houses.forEach((house) => {
       if (!house.pieces.some((piece) => piece.broken)) return;
@@ -265,5 +282,5 @@ export const createBreakables = (physics, scene) => {
     });
   };
 
-  return { addHouse, addTree, addWindmill, addStatic, rewind, update };
+  return { addHouse, addTree, addWindmill, addStatic, blast, rewind, update };
 };

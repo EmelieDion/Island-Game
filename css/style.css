@@ -128,18 +128,6 @@ body
     background: rgba(231, 184, 94, 0.15);
 }
 
-.tool__key
-{
-    display: inline-grid;
-    place-items: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    color: #f6d999;
-    font-size: 12px;
-}
-
 .lever
 {
     display: flex;

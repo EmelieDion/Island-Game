@@ -15,6 +15,7 @@ import { createBreakables } from './systems/breakables.js';
 import { createBarrel, BARREL_RADIUS, BARREL_HEIGHT } from './objects/barrel.js';
 import { createRock, ROCK_SIZE } from './objects/rock.js';
 import { loadScenery } from './objects/scenery.js';
+import { createEffects } from './objects/effects.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -27,7 +28,7 @@ const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
-let physics, waterHeight, breakables, scenery;
+let physics, waterHeight, breakables, scenery, effects;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerStart = null;
@@ -65,6 +66,7 @@ const init = async () => {
 
   physics = await createPhysics(terrain);
   breakables = createBreakables(physics, scene);
+  effects = createEffects(scene);
 
   rain = createRain();
   scene.add(rain.mesh);
@@ -159,14 +161,14 @@ const init = async () => {
     if (!pointerStart) return;
     const moved = Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y);
     pointerStart = null;
-    if (moved < 6) throwProjectile(e);
+    if (moved < 6) useTool(e);
   });
 
   document.querySelectorAll('.tool').forEach(($button) => {
     $button.addEventListener('click', () => selectTool($button.dataset.tool));
   });
   window.addEventListener('keydown', (e) => {
-    const tool = { 1: 'ball', 2: 'barrel', 3: 'rock' }[e.key];
+    const tool = { 1: 'ball', 2: 'barrel', 3: 'rock', 4: 'lightning', 5: 'gust' }[e.key];
     if (tool) selectTool(tool);
     if (e.key === 'r' || e.key === 'R') pullLever();
     if (e.key === 'Escape') document.getElementById('help').hidden = true;
@@ -255,6 +257,40 @@ const pullLever = () => {
   setTimeout(() => $lever.classList.remove('is-pulled'), 1400);
 };
 
+const findTarget = () => {
+  const hits = raycaster.intersectObjects(scene.children, true);
+  const hit = hits.find((candidate) => candidate.object !== sky.mesh && !candidate.object.isSprite && candidate.object.visible);
+  return hit ? hit.point : null;
+};
+
+const strikeLightning = (point) => {
+  effects.strike(point);
+  const away = (position) => new THREE.Vector3(position.x - point.x, 0, position.z - point.z).normalize().multiplyScalar(6).add(new THREE.Vector3(0, 7, 0));
+  breakables.blast(point, 2.2, away, 3);
+  physics.blast(point, 3, away);
+};
+
+const blowGust = (point) => {
+  const direction = new THREE.Vector3(point.x - camera.position.x, 0, point.z - camera.position.z).normalize();
+  effects.blow(point, direction);
+  const along = () => direction.clone().multiplyScalar(10).add(new THREE.Vector3(0, 3, 0));
+  breakables.blast(point, 3, along, 0.8, true);
+  physics.blast(point, 4, along);
+};
+
+const useTool = (e) => {
+  if (projectiles[selectedTool]) {
+    throwProjectile(e);
+    return;
+  }
+  pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const point = findTarget();
+  if (!point) return;
+  if (selectedTool === 'lightning') strikeLightning(point);
+  if (selectedTool === 'gust') blowGust(point);
+};
+
 const selectTool = (tool) => {
   selectedTool = tool;
   document.querySelectorAll('.tool').forEach(($button) => {
@@ -276,7 +312,7 @@ const updateLights = () => {
   moon.position.copy(sunDir).multiplyScalar(-45);
   moon.intensity = (1 - day) * 0.45;
 
-  hemisphereLight.intensity = (0.18 + day * 0.8) * (1 - clouds * 0.3);
+  hemisphereLight.intensity = (0.18 + day * 0.8) * (1 - clouds * 0.3) + effects.getFlash() * 2.5;
   setHouseBrightness(0.25 + day * 0.75);
 
   sky.uniforms.sunDir.value.copy(sunDir);
@@ -314,6 +350,7 @@ const draw = () => {
   breakables.update(timer.getElapsed());
   scenery.update(timer.getElapsed(), waterHeight);
   updateWindmill(deltaTime, weather.wind);
+  effects.update(deltaTime);
 
   controls.update();
   renderer.render(scene, camera);
