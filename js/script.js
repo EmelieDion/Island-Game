@@ -16,6 +16,7 @@ import { createBarrel, BARREL_RADIUS, BARREL_HEIGHT } from './objects/barrel.js'
 import { createRock, ROCK_SIZE } from './objects/rock.js';
 import { loadScenery } from './objects/scenery.js';
 import { createEffects } from './objects/effects.js';
+import { createAudio } from './systems/audio.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -29,6 +30,7 @@ const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
 let physics, waterHeight, breakables, scenery, effects;
+const audio = createAudio();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerStart = null;
@@ -122,7 +124,15 @@ const init = async () => {
   scene.add(windmill);
   breakables.addWindmill(windmill, blades);
 
-  scenery = await loadScenery(scene, physics, breakables);
+  scenery = await loadScenery(scene, breakables);
+
+  physics.onCollision((handle1, handle2) => {
+    const item = physics.itemByCollider.get(handle1) || physics.itemByCollider.get(handle2);
+    if (!item || item.rewind || !item.velocityBefore) return;
+    const { x, y, z } = item.velocityBefore;
+    const speed = Math.hypot(x, y, z);
+    if (speed > 3) audio.thud(speed * item.power);
+  });
 
   const $time = document.getElementById('time');
   const $timeOutput = document.getElementById('timeOutput');
@@ -192,6 +202,7 @@ const init = async () => {
   $startButton.disabled = false;
   $startButton.textContent = 'Start playing';
   $startButton.addEventListener('click', () => {
+    audio.start();
     $loader.addEventListener('transitionend', () => $loader.remove());
     $loader.classList.add('is-done');
   });
@@ -202,6 +213,14 @@ const init = async () => {
   });
   document.getElementById('helpClose').addEventListener('click', () => {
     $help.hidden = true;
+  });
+
+  const $soundButton = document.getElementById('soundButton');
+  $soundButton.addEventListener('click', () => {
+    audio.start();
+    const muted = audio.toggleMute();
+    $soundButton.classList.toggle('is-muted', muted);
+    $soundButton.setAttribute('aria-label', muted ? 'Sound on' : 'Sound off');
   });
 };
 
@@ -241,6 +260,7 @@ const throwProjectile = (e) => {
   const velocity = direction.clone().multiplyScalar(type.speed).add(new THREE.Vector3(0, 2, 0));
   const spin = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6, z: (Math.random() - 0.5) * 6 };
 
+  audio.whoosh(0.3);
   const mesh = type.create();
   scene.add(mesh);
   physics.add(mesh, type.collider(mesh), { position, velocity, spin, size: type.size, floatiness: type.floatiness, power: type.power });
@@ -253,6 +273,7 @@ const pullLever = () => {
   if ($lever.classList.contains('is-pulled')) return;
   physics.rewind();
   breakables.rewind();
+  audio.rewind();
   $lever.classList.add('is-pulled');
   setTimeout(() => $lever.classList.remove('is-pulled'), 1400);
 };
@@ -265,6 +286,7 @@ const findTarget = () => {
 
 const strikeLightning = (point) => {
   effects.strike(point);
+  audio.thunder();
   const away = (position) => new THREE.Vector3(position.x - point.x, 0, position.z - point.z).normalize().multiplyScalar(6).add(new THREE.Vector3(0, 7, 0));
   breakables.blast(point, 2.2, away, 3);
   physics.blast(point, 3, away);
@@ -273,6 +295,7 @@ const strikeLightning = (point) => {
 const blowGust = (point) => {
   const direction = new THREE.Vector3(point.x - camera.position.x, 0, point.z - camera.position.z).normalize();
   effects.blow(point, direction);
+  audio.whoosh(1);
   const along = () => direction.clone().multiplyScalar(10).add(new THREE.Vector3(0, 3, 0));
   breakables.blast(point, 3, along, 0.8, true);
   physics.blast(point, 4, along);
@@ -351,6 +374,7 @@ const draw = () => {
   scenery.update(timer.getElapsed(), waterHeight);
   updateWindmill(deltaTime, weather.wind);
   effects.update(deltaTime);
+  audio.update(weather.rain, weather.wind, timer.getElapsed());
 
   controls.update();
   renderer.render(scene, camera);

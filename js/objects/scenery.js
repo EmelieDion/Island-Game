@@ -56,7 +56,7 @@ const findTreeSpots = () => {
   return spots;
 };
 
-export const loadScenery = async (scene, physics, breakables) => {
+export const loadScenery = async (scene, breakables) => {
   const loader = new GLTFLoader();
   const [tree1, tree2, boatModel] = await Promise.all(
     ['assets/tree1.glb', 'assets/tree2.glb', 'assets/boat.glb'].map((url) => loader.loadAsync(url)),
@@ -77,16 +77,9 @@ export const loadScenery = async (scene, physics, breakables) => {
   const boat = fitToSize(boatModel.scene, 2.4, 'height');
   prepare(boat);
   scene.add(boat);
-
-  boat.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(boat);
-  const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-  const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.kinematicPositionBased());
-  physics.world.createCollider(
-    physics.RAPIER.ColliderDesc.cuboid(size.x / 2, size.y / 2, size.z / 2).setTranslation(center.x, center.y, center.z),
-    body,
-  );
+  const boatTarget = new THREE.Object3D();
+  scene.add(boatTarget);
+  breakables.addBoat(boat, boatTarget);
 
   const update = (elapsedTime, waterHeight) => {
     const angle = elapsedTime * BOAT_SPEED + 1;
@@ -102,10 +95,8 @@ export const loadScenery = async (scene, physics, breakables) => {
       waterHeight(x, z - 0.6),
     );
 
-    boat.position.set(x, water + 0.08, z);
-    boat.rotation.set(tiltX, -angle, -tiltZ, 'YXZ');
-    body.setNextKinematicTranslation(boat.position);
-    body.setNextKinematicRotation(boat.quaternion);
+    boatTarget.position.set(x, water + 0.08, z);
+    boatTarget.rotation.set(tiltX, -angle, -tiltZ, 'YXZ');
   };
 
   return { update };

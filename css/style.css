@@ -367,3 +367,36 @@ body
         grid-template-columns: 1fr;
     }
 }
+
+.brand__sound
+{
+    display: grid;
+    place-items: center;
+}
+
+.brand__sound svg
+{
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: #f6d999;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.brand__sound .sound__speaker
+{
+    fill: #f6d999;
+}
+
+.brand__sound .sound__cross,
+.brand__sound.is-muted .sound__waves
+{
+    display: none;
+}
+
+.brand__sound.is-muted .sound__cross
+{
+    display: inline;
+}

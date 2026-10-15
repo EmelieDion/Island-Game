@@ -115,6 +115,19 @@ export const createBreakables = (physics, scene) => {
     houses.push(record);
   };
 
+  const addBoat = (boat, target) => {
+    boat.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(boat);
+    box.getSize(size);
+    boat.matrixWorld.decompose(position, quaternion, scale);
+    box.getCenter(center).sub(position).applyQuaternion(quaternion.clone().invert());
+
+    const record = createRecord(2.5);
+    addPiece(record, boat, false);
+    record.pieces[0].follow = target;
+    houses.push(record);
+  };
+
   const followTarget = (piece) => {
     piece.follow.updateWorldMatrix(true, false);
     piece.follow.matrixWorld.decompose(piece.home.position, piece.home.quaternion, scale);
@@ -282,5 +295,5 @@ export const createBreakables = (physics, scene) => {
     });
   };
 
-  return { addHouse, addTree, addWindmill, addStatic, blast, rewind, update };
+  return { addHouse, addTree, addWindmill, addBoat, addStatic, blast, rewind, update };
 };
