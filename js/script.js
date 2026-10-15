@@ -9,6 +9,8 @@ import { createDayCycle } from './systems/dayCycle.js';
 import { createRain } from './objects/rain.js';
 import { createSnow } from './objects/snow.js';
 import { snowCover } from './systems/snowCover.js';
+import { createPhysics } from './systems/physics.js';
+import { createBeachBall, BEACH_BALL_RADIUS } from './objects/beachBall.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -21,6 +23,11 @@ const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
+let physics, waterHeight;
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let pointerStart = null;
+const MAX_BALLS = 40;
 
 const init = async () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false, antialias: true });
@@ -42,13 +49,16 @@ const init = async () => {
   controls.maxDistance = 85;
   controls.minDistance = 5;
 
-  const { mesh, update } = createSea();
+  const { mesh, update, getHeight } = createSea();
   seaMesh = mesh;
   seaUpdate = update;
+  waterHeight = getHeight;
   scene.add(seaMesh);
 
-  const { mesh: islandMesh } = createIsland();
+  const { mesh: islandMesh, terrain } = createIsland();
   scene.add(islandMesh);
+
+  physics = await createPhysics(terrain);
 
   rain = createRain();
   scene.add(rain.mesh);
@@ -127,6 +137,16 @@ const init = async () => {
     $windOutput.textContent = `${Math.round(weather.windTarget * 100)}%`;
   });
 
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    pointerStart = { x: e.clientX, y: e.clientY };
+  });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (!pointerStart) return;
+    const moved = Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y);
+    pointerStart = null;
+    if (moved < 6) throwBall(e);
+  });
+
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
     mouse.y = e.clientY / window.innerHeight;
@@ -142,6 +162,21 @@ const init = async () => {
   const $loader = document.getElementById('loader');
   $loader.addEventListener('transitionend', () => $loader.remove());
   $loader.classList.add('is-done');
+};
+
+const throwBall = (e) => {
+  pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const direction = raycaster.ray.direction;
+  const position = camera.position.clone().addScaledVector(direction, 1.5);
+  const velocity = direction.clone().multiplyScalar(16).add(new THREE.Vector3(0, 2, 0));
+
+  const mesh = createBeachBall();
+  scene.add(mesh);
+  const collider = physics.RAPIER.ColliderDesc.ball(BEACH_BALL_RADIUS).setDensity(0.15).setRestitution(0.75).setFriction(0.6);
+  physics.add(mesh, collider, { position, velocity, size: BEACH_BALL_RADIUS, floatiness: 4 });
+
+  if (physics.items.length > MAX_BALLS) physics.remove(physics.items[0]);
 };
 
 const updateLights = () => {
@@ -191,6 +226,8 @@ const draw = () => {
   const particleBrightness = 0.35 + dayCycle.state.day * 0.65;
   rain.update(renderer, weather.rain, wind, deltaTime, particleBrightness);
   snow.update(renderer, weather.snow, wind, deltaTime, timer.getElapsed(), particleBrightness);
+
+  physics.update(deltaTime, waterHeight);
 
   controls.update();
   renderer.render(scene, camera);

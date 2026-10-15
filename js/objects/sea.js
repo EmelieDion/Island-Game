@@ -44,8 +44,16 @@ export const createSea = () => {
     uniforms.brightness.value = 0.07 + day * 0.93;
   };
 
+  const getHeight = (x, z) => {
+    const t = uniforms.time.value;
+    const wave = Math.sin(x * 0.55 + t * 1.3) * Math.cos(z * 0.45 + t * 0.9)
+      + Math.sin((x + z) * 0.9 + t * 2.1) * 0.35;
+    return wave * uniforms.waveHeight.value;
+  };
+
   return {
     mesh,
     update,
+    getHeight,
   };
 };
