@@ -172,6 +172,7 @@ const init = async () => {
     const tool = { 1: 'ball', 2: 'barrel', 3: 'rock' }[e.key];
     if (tool) selectTool(tool);
     if (e.key === 'r' || e.key === 'R') pullLever();
+    if (e.key === 'Escape') document.getElementById('help').hidden = true;
   });
   document.getElementById('lever').addEventListener('click', pullLever);
 
@@ -188,8 +189,21 @@ const init = async () => {
 
   renderer.setAnimationLoop(draw);
   const $loader = document.getElementById('loader');
-  $loader.addEventListener('transitionend', () => $loader.remove());
-  $loader.classList.add('is-done');
+  const $startButton = document.getElementById('startButton');
+  $startButton.disabled = false;
+  $startButton.textContent = 'Start playing';
+  $startButton.addEventListener('click', () => {
+    $loader.addEventListener('transitionend', () => $loader.remove());
+    $loader.classList.add('is-done');
+  });
+
+  const $help = document.getElementById('help');
+  document.getElementById('helpButton').addEventListener('click', () => {
+    $help.hidden = false;
+  });
+  document.getElementById('helpClose').addEventListener('click', () => {
+    $help.hidden = true;
+  });
 };
 
 const projectiles = {
