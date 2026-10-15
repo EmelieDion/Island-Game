@@ -19,7 +19,7 @@ import { loadScenery } from './objects/scenery.js';
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
 let seaMesh, seaUpdate, sky;
-let sun, moon, hemisphereLight, setHouseBrightness;
+let sun, moon, hemisphereLight, setHouseBrightness, updateWindmill;
 let rain, snow;
 const weather = { rainTarget: 0, rain: 0, snowTarget: 0, snow: 0, snowCover: 0, windTarget: 0.15, wind: 0.15 };
 const wind = new THREE.Vector2();
@@ -89,8 +89,9 @@ const init = async () => {
   hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
   scene.add(hemisphereLight);
 
-  const { createHouse, setBrightness, windmill } = await loadModels();
+  const { createHouse, setBrightness, windmill, updateWindmill: windmillUpdate } = await loadModels();
   setHouseBrightness = setBrightness;
+  updateWindmill = windmillUpdate;
 
   const houses = [
     { x: -1.9, z: -1.7, rotation: 0.2, tint: 0xffffff },
@@ -301,6 +302,7 @@ const draw = () => {
   physics.update(deltaTime, waterHeight);
   breakables.update(timer.getElapsed());
   scenery.update(timer.getElapsed(), waterHeight);
+  updateWindmill(deltaTime, weather.wind);
 
   controls.update();
   renderer.render(scene, camera);
