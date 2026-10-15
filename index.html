@@ -44,7 +44,17 @@
       </div>
       <input type="range" id="wind" min="0" max="1" step="0.01" value="0.15">
     </div>
+    <button class="lever" id="lever">
+      <span class="lever__track"><span class="lever__handle"></span></span>
+      <span class="lever__text"><strong>Time lever</strong><small>Rewind everything · R</small></span>
+    </button>
   </aside>
+  <nav class="tools" aria-label="Throw">
+    <button class="tool is-active" data-tool="ball"><span class="tool__key">1</span>Beach ball</button>
+    <button class="tool" data-tool="barrel"><span class="tool__key">2</span>Barrel</button>
+    <button class="tool" data-tool="rock"><span class="tool__key">3</span>Rock</button>
+  </nav>
+
   <script src="js/script.js" type="module"></script>
 </body>
 </html>

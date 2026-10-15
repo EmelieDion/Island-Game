@@ -93,3 +93,118 @@ body
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; }
 }
+
+.tools
+{
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 18px;
+    background: rgba(14, 23, 38, 0.78);
+    border: 1px solid rgba(232, 200, 140, 0.25);
+    backdrop-filter: blur(12px);
+}
+
+.tool
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: #f3ead8;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.tool:hover
+{
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.tool.is-active
+{
+    border-color: #e7b85e;
+    background: rgba(231, 184, 94, 0.15);
+}
+
+.tool__key
+{
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #f6d999;
+    font-size: 12px;
+}
+
+.lever
+{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    border: 1px solid rgba(232, 200, 140, 0.25);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f3ead8;
+    font-family: system-ui, sans-serif;
+    text-align: left;
+    cursor: pointer;
+}
+
+.lever:hover
+{
+    background: rgba(231, 184, 94, 0.12);
+}
+
+.lever__track
+{
+    position: relative;
+    flex-shrink: 0;
+    width: 44px;
+    height: 18px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.lever__handle
+{
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #e7b85e;
+    transition: transform 0.3s ease;
+}
+
+.lever.is-pulled .lever__handle
+{
+    transform: translateX(26px);
+}
+
+.lever__text
+{
+    display: flex;
+    flex-direction: column;
+    font-size: 14px;
+}
+
+.lever__text small
+{
+    color: rgba(243, 234, 216, 0.6);
+    font-size: 12px;
+}

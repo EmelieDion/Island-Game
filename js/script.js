@@ -9,6 +9,11 @@ import { createDayCycle } from './systems/dayCycle.js';
 import { createRain } from './objects/rain.js';
 import { createSnow } from './objects/snow.js';
 import { snowCover } from './systems/snowCover.js';
+import { createPhysics } from './systems/physics.js';
+import { createBeachBall, BEACH_BALL_RADIUS } from './objects/beachBall.js';
+import { createBreakables } from './systems/breakables.js';
+import { createBarrel, BARREL_RADIUS, BARREL_HEIGHT } from './objects/barrel.js';
+import { createRock, ROCK_SIZE } from './objects/rock.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -21,6 +26,12 @@ const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
+let physics, waterHeight, breakables;
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let pointerStart = null;
+const MAX_PROJECTILES = 40;
+let selectedTool = 'ball';
 
 const init = async () => {
   renderer = new THREE.WebGPURenderer({ canvas: $canvas, alpha: false, antialias: true });
@@ -42,13 +53,17 @@ const init = async () => {
   controls.maxDistance = 85;
   controls.minDistance = 5;
 
-  const { mesh, update } = createSea();
+  const { mesh, update, getHeight } = createSea();
   seaMesh = mesh;
   seaUpdate = update;
+  waterHeight = getHeight;
   scene.add(seaMesh);
 
-  const { mesh: islandMesh } = createIsland();
+  const { mesh: islandMesh, terrain } = createIsland();
   scene.add(islandMesh);
+
+  physics = await createPhysics(terrain);
+  breakables = createBreakables(physics, scene);
 
   rain = createRain();
   scene.add(rain.mesh);
@@ -91,11 +106,20 @@ const init = async () => {
     house.position.set(px, terrainHeight(px, pz) - 0.05, pz);
     house.rotation.y = rotation;
     scene.add(house);
+    breakables.addHouse(house);
   });
 
-  windmill.position.set(WINDMILL.x, terrainHeight(WINDMILL.x, WINDMILL.y) - 0.1, WINDMILL.y);
+  let windmillBase = Infinity;
+  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+    windmillBase = Math.min(windmillBase, terrainHeight(WINDMILL.x + Math.cos(angle) * 0.7, WINDMILL.y + Math.sin(angle) * 0.7));
+  }
+  windmill.position.set(WINDMILL.x, windmillBase - 0.05, WINDMILL.y);
   windmill.rotation.y = -0.6;
   scene.add(windmill);
+  windmill.updateMatrixWorld(true);
+  windmill.traverse((child) => {
+    if (child.name === 'Molen_Toren') breakables.addStatic(child);
+  });
 
   const $time = document.getElementById('time');
   const $timeOutput = document.getElementById('timeOutput');
@@ -127,6 +151,26 @@ const init = async () => {
     $windOutput.textContent = `${Math.round(weather.windTarget * 100)}%`;
   });
 
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    pointerStart = { x: e.clientX, y: e.clientY };
+  });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (!pointerStart) return;
+    const moved = Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y);
+    pointerStart = null;
+    if (moved < 6) throwProjectile(e);
+  });
+
+  document.querySelectorAll('.tool').forEach(($button) => {
+    $button.addEventListener('click', () => selectTool($button.dataset.tool));
+  });
+  window.addEventListener('keydown', (e) => {
+    const tool = { 1: 'ball', 2: 'barrel', 3: 'rock' }[e.key];
+    if (tool) selectTool(tool);
+    if (e.key === 'r' || e.key === 'R') pullLever();
+  });
+  document.getElementById('lever').addEventListener('click', pullLever);
+
   window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX / window.innerWidth;
     mouse.y = e.clientY / window.innerHeight;
@@ -139,7 +183,68 @@ const init = async () => {
   await sky.compile(renderer, camera);
 
   renderer.setAnimationLoop(draw);
-  document.getElementById('loader').classList.add('is-done');
+  const $loader = document.getElementById('loader');
+  $loader.addEventListener('transitionend', () => $loader.remove());
+  $loader.classList.add('is-done');
+};
+
+const projectiles = {
+  ball: {
+    create: createBeachBall,
+    collider: () => physics.RAPIER.ColliderDesc.ball(BEACH_BALL_RADIUS).setDensity(0.15).setRestitution(0.75).setFriction(0.6),
+    size: BEACH_BALL_RADIUS,
+    floatiness: 4,
+    power: 0.6,
+    speed: 16,
+  },
+  barrel: {
+    create: createBarrel,
+    collider: () => physics.RAPIER.ColliderDesc.cylinder(BARREL_HEIGHT / 2, BARREL_RADIUS * 1.1).setDensity(0.8).setRestitution(0.2).setFriction(0.7),
+    size: BARREL_HEIGHT / 2,
+    floatiness: 1.8,
+    power: 1.6,
+    speed: 15,
+  },
+  rock: {
+    create: createRock,
+    collider: (mesh) => physics.RAPIER.ColliderDesc.convexHull(mesh.geometry.attributes.position.array).setDensity(2.5).setRestitution(0.1).setFriction(0.9),
+    size: ROCK_SIZE,
+    floatiness: 0.3,
+    power: 3,
+    speed: 14,
+  },
+};
+
+const throwProjectile = (e) => {
+  const type = projectiles[selectedTool];
+  pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const direction = raycaster.ray.direction;
+  const position = camera.position.clone().addScaledVector(direction, 1.5);
+  const velocity = direction.clone().multiplyScalar(type.speed).add(new THREE.Vector3(0, 2, 0));
+  const spin = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6, z: (Math.random() - 0.5) * 6 };
+
+  const mesh = type.create();
+  scene.add(mesh);
+  physics.add(mesh, type.collider(mesh), { position, velocity, spin, size: type.size, floatiness: type.floatiness, power: type.power });
+
+  if (physics.items.length > MAX_PROJECTILES) physics.remove(physics.items[0]);
+};
+
+const pullLever = () => {
+  const $lever = document.getElementById('lever');
+  if ($lever.classList.contains('is-pulled')) return;
+  physics.rewind();
+  breakables.rewind();
+  $lever.classList.add('is-pulled');
+  setTimeout(() => $lever.classList.remove('is-pulled'), 1400);
+};
+
+const selectTool = (tool) => {
+  selectedTool = tool;
+  document.querySelectorAll('.tool').forEach(($button) => {
+    $button.classList.toggle('is-active', $button.dataset.tool === tool);
+  });
 };
 
 const updateLights = () => {
@@ -189,6 +294,9 @@ const draw = () => {
   const particleBrightness = 0.35 + dayCycle.state.day * 0.65;
   rain.update(renderer, weather.rain, wind, deltaTime, particleBrightness);
   snow.update(renderer, weather.snow, wind, deltaTime, timer.getElapsed(), particleBrightness);
+
+  physics.update(deltaTime, waterHeight);
+  breakables.update(timer.getElapsed());
 
   controls.update();
   renderer.render(scene, camera);
