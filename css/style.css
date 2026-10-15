@@ -208,3 +208,10 @@ body
     color: rgba(243, 234, 216, 0.6);
     font-size: 12px;
 }
+
+.tool__icon
+{
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}

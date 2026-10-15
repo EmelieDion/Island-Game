@@ -86,8 +86,15 @@ export const loadScenery = async (scene, physics, breakables) => {
     const z = Math.sin(angle) * BOAT_DISTANCE;
     const tiltX = (waterHeight(x, z + 0.6) - waterHeight(x, z - 0.6)) / 1.2;
     const tiltZ = (waterHeight(x + 0.6, z) - waterHeight(x - 0.6, z)) / 1.2;
+    const water = Math.max(
+      waterHeight(x, z),
+      waterHeight(x + 0.6, z),
+      waterHeight(x - 0.6, z),
+      waterHeight(x, z + 0.6),
+      waterHeight(x, z - 0.6),
+    );
 
-    boat.position.set(x, waterHeight(x, z) - 0.15, z);
+    boat.position.set(x, water + 0.08, z);
     boat.rotation.set(tiltX, -angle, -tiltZ, 'YXZ');
     body.setNextKinematicTranslation(boat.position);
     body.setNextKinematicRotation(boat.quaternion);
