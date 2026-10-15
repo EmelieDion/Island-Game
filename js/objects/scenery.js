@@ -7,6 +7,7 @@ import { addSnow } from '../systems/snowCover.js';
 const TREE_COUNT = 12;
 const BOAT_DISTANCE = 19;
 const BOAT_SPEED = 0.04;
+const FRONT = new THREE.Vector2(19, 22).normalize();
 
 const createRandom = (seed) => () => {
   seed = (seed * 16807) % 2147483647;
@@ -30,24 +31,32 @@ const groundUnder = (x, z, radius) => {
   return ground;
 };
 
+const isGoodSpot = (x, z, spots) => {
+  if ((x * FRONT.x + z * FRONT.y) / Math.hypot(x, z) > 0.2) return false;
+  if (terrainHeight(x, z) < 0.7) return false;
+  if (Math.hypot(x - VILLAGE.x, z - VILLAGE.y) < 4.2) return false;
+  if (Math.hypot(x - WINDMILL.x, z - WINDMILL.y) < 2.2) return false;
+  return !spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 2.2);
+};
+
 const findTreeSpots = () => {
   const random = createRandom(7);
   const spots = [];
-  for (let tries = 0; spots.length < TREE_COUNT && tries < 2000; tries++) {
-    const angle = random() * Math.PI * 2;
-    const distance = 3 + random() * 9;
-    const x = Math.cos(angle) * distance;
-    const z = Math.sin(angle) * distance;
-    if (terrainHeight(x, z) < 0.9) continue;
-    if (Math.hypot(x - VILLAGE.x, z - VILLAGE.y) < 4.5) continue;
-    if (Math.hypot(x - WINDMILL.x, z - WINDMILL.y) < 2.2) continue;
-    if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 1.6)) continue;
-    spots.push({ x, z, type: random() < 0.5 ? 0 : 1, scale: 0.8 + random() * 0.5, rotation: random() * Math.PI * 2 });
+  for (let i = 0; i < TREE_COUNT; i++) {
+    for (let tries = 0; tries < 80; tries++) {
+      const angle = ((i + random()) / TREE_COUNT) * Math.PI * 2;
+      const distance = 3.5 + random() * 8;
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      if (!isGoodSpot(x, z, spots)) continue;
+      spots.push({ x, z, type: random() < 0.5 ? 0 : 1, scale: 0.8 + random() * 0.5, rotation: random() * Math.PI * 2 });
+      break;
+    }
   }
   return spots;
 };
 
-export const loadScenery = async (scene, physics, breakables) => {
+export const loadScenery = async (scene, breakables) => {
   const loader = new GLTFLoader();
   const [tree1, tree2, boatModel] = await Promise.all(
     ['assets/tree1.glb', 'assets/tree2.glb', 'assets/boat.glb'].map((url) => loader.loadAsync(url)),
@@ -62,23 +71,15 @@ export const loadScenery = async (scene, physics, breakables) => {
     tree.rotation.y = spot.rotation;
     tree.position.set(spot.x, groundUnder(spot.x, spot.z, 0.25) - 0.05, spot.z);
     scene.add(tree);
-    tree.updateMatrixWorld(true);
-    breakables.addStatic(tree, 0.35);
+    breakables.addTree(tree);
   });
 
   const boat = fitToSize(boatModel.scene, 2.4, 'height');
   prepare(boat);
   scene.add(boat);
-
-  boat.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(boat);
-  const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-  const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.kinematicPositionBased());
-  physics.world.createCollider(
-    physics.RAPIER.ColliderDesc.cuboid(size.x / 2, size.y / 2, size.z / 2).setTranslation(center.x, center.y, center.z),
-    body,
-  );
+  const boatTarget = new THREE.Object3D();
+  scene.add(boatTarget);
+  breakables.addBoat(boat, boatTarget);
 
   const update = (elapsedTime, waterHeight) => {
     const angle = elapsedTime * BOAT_SPEED + 1;
@@ -86,11 +87,16 @@ export const loadScenery = async (scene, physics, breakables) => {
     const z = Math.sin(angle) * BOAT_DISTANCE;
     const tiltX = (waterHeight(x, z + 0.6) - waterHeight(x, z - 0.6)) / 1.2;
     const tiltZ = (waterHeight(x + 0.6, z) - waterHeight(x - 0.6, z)) / 1.2;
+    const water = Math.max(
+      waterHeight(x, z),
+      waterHeight(x + 0.6, z),
+      waterHeight(x - 0.6, z),
+      waterHeight(x, z + 0.6),
+      waterHeight(x, z - 0.6),
+    );
 
-    boat.position.set(x, waterHeight(x, z) - 0.15, z);
-    boat.rotation.set(tiltX, -angle, -tiltZ, 'YXZ');
-    body.setNextKinematicTranslation(boat.position);
-    body.setNextKinematicRotation(boat.quaternion);
+    boatTarget.position.set(x, water + 0.08, z);
+    boatTarget.rotation.set(tiltX, -angle, -tiltZ, 'YXZ');
   };
 
   return { update };

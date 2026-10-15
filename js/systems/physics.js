@@ -110,7 +110,19 @@ export const createPhysics = async (terrain) => {
     });
   };
 
+  const blast = (point, radius, getVelocity) => {
+    items.forEach((item) => {
+      if (item.rewind) return;
+      const position = item.body.translation();
+      const distance = Math.hypot(position.x - point.x, position.y - point.y, position.z - point.z);
+      if (distance > radius) return;
+      const push = getVelocity(position);
+      const velocity = item.body.linvel();
+      item.body.setLinvel({ x: velocity.x + push.x, y: velocity.y + push.y, z: velocity.z + push.z }, true);
+    });
+  };
+
   const onCollision = (listener) => collisionListeners.push(listener);
 
-  return { RAPIER, world, items, itemByCollider, add, remove, rewind, update, onCollision };
+  return { RAPIER, world, items, itemByCollider, add, remove, rewind, blast, update, onCollision };
 };

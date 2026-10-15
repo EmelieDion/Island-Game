@@ -15,6 +15,8 @@ import { createBreakables } from './systems/breakables.js';
 import { createBarrel, BARREL_RADIUS, BARREL_HEIGHT } from './objects/barrel.js';
 import { createRock, ROCK_SIZE } from './objects/rock.js';
 import { loadScenery } from './objects/scenery.js';
+import { createEffects } from './objects/effects.js';
+import { createAudio } from './systems/audio.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -27,7 +29,8 @@ const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
-let physics, waterHeight, breakables, scenery;
+let physics, waterHeight, breakables, scenery, effects;
+const audio = createAudio();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerStart = null;
@@ -65,6 +68,7 @@ const init = async () => {
 
   physics = await createPhysics(terrain);
   breakables = createBreakables(physics, scene);
+  effects = createEffects(scene);
 
   rain = createRain();
   scene.add(rain.mesh);
@@ -89,7 +93,7 @@ const init = async () => {
   hemisphereLight = new THREE.HemisphereLight(0xcfe6ff, 0x4a3b2a, 0.9);
   scene.add(hemisphereLight);
 
-  const { createHouse, setBrightness, windmill, updateWindmill: windmillUpdate } = await loadModels();
+  const { createHouse, setBrightness, windmill, blades, updateWindmill: windmillUpdate } = await loadModels();
   setHouseBrightness = setBrightness;
   updateWindmill = windmillUpdate;
 
@@ -118,12 +122,17 @@ const init = async () => {
   windmill.position.set(WINDMILL.x, windmillBase - 0.05, WINDMILL.y);
   windmill.rotation.y = -0.6;
   scene.add(windmill);
-  windmill.updateMatrixWorld(true);
-  windmill.traverse((child) => {
-    if (child.name === 'Molen_Toren') breakables.addStatic(child);
-  });
+  breakables.addWindmill(windmill, blades);
 
-  scenery = await loadScenery(scene, physics, breakables);
+  scenery = await loadScenery(scene, breakables);
+
+  physics.onCollision((handle1, handle2) => {
+    const item = physics.itemByCollider.get(handle1) || physics.itemByCollider.get(handle2);
+    if (!item || item.rewind || !item.velocityBefore) return;
+    const { x, y, z } = item.velocityBefore;
+    const speed = Math.hypot(x, y, z);
+    if (speed > 3) audio.thud(speed * item.power);
+  });
 
   const $time = document.getElementById('time');
   const $timeOutput = document.getElementById('timeOutput');
@@ -162,16 +171,17 @@ const init = async () => {
     if (!pointerStart) return;
     const moved = Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y);
     pointerStart = null;
-    if (moved < 6) throwProjectile(e);
+    if (moved < 6) useTool(e);
   });
 
   document.querySelectorAll('.tool').forEach(($button) => {
     $button.addEventListener('click', () => selectTool($button.dataset.tool));
   });
   window.addEventListener('keydown', (e) => {
-    const tool = { 1: 'ball', 2: 'barrel', 3: 'rock' }[e.key];
+    const tool = { 1: 'ball', 2: 'barrel', 3: 'rock', 4: 'lightning', 5: 'gust' }[e.key];
     if (tool) selectTool(tool);
     if (e.key === 'r' || e.key === 'R') pullLever();
+    if (e.key === 'Escape') document.getElementById('help').hidden = true;
   });
   document.getElementById('lever').addEventListener('click', pullLever);
 
@@ -188,8 +198,43 @@ const init = async () => {
 
   renderer.setAnimationLoop(draw);
   const $loader = document.getElementById('loader');
-  $loader.addEventListener('transitionend', () => $loader.remove());
-  $loader.classList.add('is-done');
+  const $startButton = document.getElementById('startButton');
+  $startButton.disabled = false;
+  $startButton.textContent = 'Start playing';
+  $startButton.addEventListener('click', () => {
+    audio.start();
+    $loader.addEventListener('transitionend', () => $loader.remove());
+    $loader.classList.add('is-done');
+  });
+
+  const $help = document.getElementById('help');
+  document.getElementById('helpButton').addEventListener('click', () => {
+    $help.hidden = false;
+  });
+  document.getElementById('helpClose').addEventListener('click', () => {
+    $help.hidden = true;
+  });
+
+  $help.addEventListener('click', (e) => {
+    if (e.target === $help) $help.hidden = true;
+  });
+
+  document.querySelectorAll('.control input').forEach(($input) => {
+    const fill = () => {
+      const percent = ((parseFloat($input.value) - parseFloat($input.min)) / (parseFloat($input.max) - parseFloat($input.min))) * 100;
+      $input.style.setProperty('--fill', `${percent}%`);
+    };
+    fill();
+    $input.addEventListener('input', fill);
+  });
+
+  const $soundButton = document.getElementById('soundButton');
+  $soundButton.addEventListener('click', () => {
+    audio.start();
+    const muted = audio.toggleMute();
+    $soundButton.classList.toggle('is-muted', muted);
+    $soundButton.setAttribute('aria-label', muted ? 'Sound on' : 'Sound off');
+  });
 };
 
 const projectiles = {
@@ -228,6 +273,7 @@ const throwProjectile = (e) => {
   const velocity = direction.clone().multiplyScalar(type.speed).add(new THREE.Vector3(0, 2, 0));
   const spin = { x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 6, z: (Math.random() - 0.5) * 6 };
 
+  audio.whoosh(0.3);
   const mesh = type.create();
   scene.add(mesh);
   physics.add(mesh, type.collider(mesh), { position, velocity, spin, size: type.size, floatiness: type.floatiness, power: type.power });
@@ -240,8 +286,45 @@ const pullLever = () => {
   if ($lever.classList.contains('is-pulled')) return;
   physics.rewind();
   breakables.rewind();
+  audio.rewind();
   $lever.classList.add('is-pulled');
   setTimeout(() => $lever.classList.remove('is-pulled'), 1400);
+};
+
+const findTarget = () => {
+  const hits = raycaster.intersectObjects(scene.children, true);
+  const hit = hits.find((candidate) => candidate.object !== sky.mesh && !candidate.object.isSprite && candidate.object.visible);
+  return hit ? hit.point : null;
+};
+
+const strikeLightning = (point) => {
+  effects.strike(point);
+  audio.thunder();
+  const away = (position) => new THREE.Vector3(position.x - point.x, 0, position.z - point.z).normalize().multiplyScalar(6).add(new THREE.Vector3(0, 7, 0));
+  breakables.blast(point, 2.2, away, 3);
+  physics.blast(point, 3, away);
+};
+
+const blowGust = (point) => {
+  const direction = new THREE.Vector3(point.x - camera.position.x, 0, point.z - camera.position.z).normalize();
+  effects.blow(point, direction);
+  audio.whoosh(1);
+  const along = () => direction.clone().multiplyScalar(10).add(new THREE.Vector3(0, 3, 0));
+  breakables.blast(point, 3, along, 0.8, true);
+  physics.blast(point, 4, along);
+};
+
+const useTool = (e) => {
+  if (projectiles[selectedTool]) {
+    throwProjectile(e);
+    return;
+  }
+  pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const point = findTarget();
+  if (!point) return;
+  if (selectedTool === 'lightning') strikeLightning(point);
+  if (selectedTool === 'gust') blowGust(point);
 };
 
 const selectTool = (tool) => {
@@ -265,7 +348,7 @@ const updateLights = () => {
   moon.position.copy(sunDir).multiplyScalar(-45);
   moon.intensity = (1 - day) * 0.45;
 
-  hemisphereLight.intensity = (0.18 + day * 0.8) * (1 - clouds * 0.3);
+  hemisphereLight.intensity = (0.18 + day * 0.8) * (1 - clouds * 0.3) + effects.getFlash() * 2.5;
   setHouseBrightness(0.25 + day * 0.75);
 
   sky.uniforms.sunDir.value.copy(sunDir);
@@ -303,6 +386,8 @@ const draw = () => {
   breakables.update(timer.getElapsed());
   scenery.update(timer.getElapsed(), waterHeight);
   updateWindmill(deltaTime, weather.wind);
+  effects.update(deltaTime);
+  audio.update(weather.rain, weather.wind, timer.getElapsed());
 
   controls.update();
   renderer.render(scene, camera);
