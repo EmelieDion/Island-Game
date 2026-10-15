@@ -215,6 +215,19 @@ const init = async () => {
     $help.hidden = true;
   });
 
+  $help.addEventListener('click', (e) => {
+    if (e.target === $help) $help.hidden = true;
+  });
+
+  document.querySelectorAll('.control input').forEach(($input) => {
+    const fill = () => {
+      const percent = ((parseFloat($input.value) - parseFloat($input.min)) / (parseFloat($input.max) - parseFloat($input.min))) * 100;
+      $input.style.setProperty('--fill', `${percent}%`);
+    };
+    fill();
+    $input.addEventListener('input', fill);
+  });
+
   const $soundButton = document.getElementById('soundButton');
   $soundButton.addEventListener('click', () => {
     audio.start();
