@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 
-const BREAK_FORCE = 5;
+const BREAK_FORCE = 4;
 const REPAIR_DELAY = 6;
 const PIECE_REPAIR_TIME = 1.2;
 const PIECE_REPAIR_GAP = 0.15;
@@ -50,6 +50,7 @@ export const createBreakables = (physics, scene) => {
       const piece = {
         mesh,
         body,
+        collider,
         house: record,
         broken: false,
         isRoof: mesh.name.startsWith('Cylinder'),
@@ -78,8 +79,8 @@ export const createBreakables = (physics, scene) => {
   const breakPiece = (piece, velocity, power) => {
     piece.broken = true;
     piece.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
-    const mass = piece.body.mass();
-    const push = new THREE.Vector3(velocity.x, velocity.y, velocity.z).normalize().multiplyScalar(mass * 2 * power);
+    const mass = piece.collider.mass();
+    const push = new THREE.Vector3(velocity.x, velocity.y, velocity.z).normalize().multiplyScalar(mass * 2.5 * power);
     piece.body.applyImpulse({ x: push.x, y: push.y + mass * 2, z: push.z }, true);
     piece.body.applyTorqueImpulse({
       x: (Math.random() - 0.5) * mass * 0.2,
@@ -88,7 +89,7 @@ export const createBreakables = (physics, scene) => {
     }, true);
   };
 
-  const breakAround = (house, hitPiece, point, velocity, power) => {
+  const breakAround = (house, hitPiece, velocity, power) => {
     if (house.repairing) {
       house.pieces.filter((piece) => piece.broken).forEach((piece) => {
         piece.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
@@ -99,7 +100,7 @@ export const createBreakables = (physics, scene) => {
 
     const toBreak = new Set([hitPiece]);
     house.pieces.forEach((piece) => {
-      if (!piece.broken && piece.mesh.position.distanceTo(point) < 0.45 + power * 0.25) toBreak.add(piece);
+      if (!piece.broken && piece.home.position.distanceTo(hitPiece.home.position) < power * 0.5) toBreak.add(piece);
     });
 
     let changed = true;
@@ -131,10 +132,10 @@ export const createBreakables = (physics, scene) => {
     const piece = pieceByCollider.get(handle1) || pieceByCollider.get(handle2);
     const item = physics.itemByCollider.get(handle1) || physics.itemByCollider.get(handle2);
     if (!piece || !item) return;
-    const velocity = item.body.linvel();
+    const velocity = item.velocityBefore || item.body.linvel();
     const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
     if (speed * item.power < BREAK_FORCE) return;
-    breakAround(piece.house, piece, item.body.translation(), velocity, item.power);
+    breakAround(piece.house, piece, velocity, item.power);
   });
 
   const repair = (house) => {

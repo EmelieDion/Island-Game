@@ -109,7 +109,11 @@ const init = async () => {
     breakables.addHouse(house);
   });
 
-  windmill.position.set(WINDMILL.x, terrainHeight(WINDMILL.x, WINDMILL.y) - 0.1, WINDMILL.y);
+  let windmillBase = Infinity;
+  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+    windmillBase = Math.min(windmillBase, terrainHeight(WINDMILL.x + Math.cos(angle) * 0.7, WINDMILL.y + Math.sin(angle) * 0.7));
+  }
+  windmill.position.set(WINDMILL.x, windmillBase - 0.05, WINDMILL.y);
   windmill.rotation.y = -0.6;
   scene.add(windmill);
   windmill.updateMatrixWorld(true);

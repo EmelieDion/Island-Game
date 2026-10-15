@@ -59,7 +59,10 @@ export const createPhysics = async (terrain) => {
   const update = (deltaTime, waterHeight) => {
     accumulator += Math.min(deltaTime, 0.1);
     while (accumulator >= STEP) {
-      items.forEach((item) => float(item, waterHeight));
+      items.forEach((item) => {
+        float(item, waterHeight);
+        item.velocityBefore = item.body.linvel();
+      });
       world.step(eventQueue);
       eventQueue.drainCollisionEvents((handle1, handle2, started) => {
         if (started) collisionListeners.forEach((listener) => listener(handle1, handle2));

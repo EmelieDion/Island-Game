@@ -1,7 +1,9 @@
 import * as THREE from 'three/webgpu';
-import { wgslFn, uniform, uv, positionLocal, sin, cos, vec3, colorSpaceToWorking } from 'three/tsl';
+import { wgslFn, uniform, uv, positionLocal, sin, cos, vec3, mix, colorSpaceToWorking } from 'three/tsl';
 
 import seaShader from '../shaders/sea/fragment.wgsl?raw';
+
+const WALL_DEPTH = 2.7;
 
 export const createSea = () => {
   const uniforms = {
@@ -33,7 +35,18 @@ export const createSea = () => {
     glints: uniforms.glints,
   }), THREE.SRGBColorSpace).mul(uniforms.brightness);
 
-  const mesh = new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Group();
+  mesh.add(new THREE.Mesh(geometry, material));
+
+  const wallGeometry = new THREE.CylinderGeometry(30, 30, WALL_DEPTH, 160, 1, true);
+  wallGeometry.translate(0, -WALL_DEPTH / 2, 0);
+  const wallMaterial = new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide });
+  wallMaterial.positionNode = vec3(p.x, p.y.add(wave.mul(p.y.div(WALL_DEPTH).add(1))), p.z);
+  wallMaterial.colorNode = colorSpaceToWorking(
+    mix(vec3(0.0, 0.08, 0.15), vec3(0.0, 0.3, 0.45), uv().y),
+    THREE.SRGBColorSpace,
+  ).mul(uniforms.brightness);
+  mesh.add(new THREE.Mesh(wallGeometry, wallMaterial));
 
   const update = (deltaTime, mouse, day, wind) => {
     uniforms.time.value += deltaTime * (1 + wind * 1.5);
