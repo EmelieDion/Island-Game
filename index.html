@@ -10,6 +10,10 @@
 <body>
   <canvas id="webgl"></canvas>
 
+  <div class="loader" id="loader">
+    <p class="loader__text">Building the island…</p>
+  </div>
+
   <aside class="panel">
     <h2 class="panel__title">Weather machine</h2>
     <div class="control">
@@ -18,6 +22,27 @@
         <output id="timeOutput">13:00</output>
       </div>
       <input type="range" id="time" min="0" max="24" step="0.05" value="13">
+    </div>
+    <div class="control">
+      <div class="control__row">
+        <label for="rain">Rain</label>
+        <output id="rainOutput">0%</output>
+      </div>
+      <input type="range" id="rain" min="0" max="1" step="0.01" value="0">
+    </div>
+    <div class="control">
+      <div class="control__row">
+        <label for="snow">Snow</label>
+        <output id="snowOutput">0%</output>
+      </div>
+      <input type="range" id="snow" min="0" max="1" step="0.01" value="0">
+    </div>
+    <div class="control">
+      <div class="control__row">
+        <label for="wind">Wind</label>
+        <output id="windOutput">15%</output>
+      </div>
+      <input type="range" id="wind" min="0" max="1" step="0.01" value="0.15">
     </div>
   </aside>
   <script src="js/script.js" type="module"></script>

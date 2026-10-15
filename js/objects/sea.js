@@ -35,10 +35,12 @@ export const createSea = () => {
 
   const mesh = new THREE.Mesh(geometry, material);
 
-  const update = (elapsedTime, deltaTime, mouse, day) => {
-    uniforms.time.value = elapsedTime;
-    uniforms.iTime.value += deltaTime * (0.3 + mouse.x * 2.7);
-    uniforms.glints.value = 0.3 + (1 - mouse.y) * 1.4;
+  const update = (deltaTime, mouse, day, wind) => {
+    uniforms.time.value += deltaTime * (1 + wind * 1.5);
+    uniforms.waveHeight.value = 0.2 + wind * 0.22;
+    uniforms.iTime.value += deltaTime * (0.3 + mouse.x * 2.7 + wind * 1.5);
+    const glintsTarget = 0.55 + (1 - mouse.y) * 0.45;
+    uniforms.glints.value += (glintsTarget - uniforms.glints.value) * Math.min(1, deltaTime * 3);
     uniforms.brightness.value = 0.07 + day * 0.93;
   };
 

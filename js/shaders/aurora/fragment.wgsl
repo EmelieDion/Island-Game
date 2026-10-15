@@ -8,7 +8,8 @@ fn aurora(rd: vec3f, iTime: f32, amount: f32) -> vec4f {
     return col;
   }
 
-  for (var i = 0.0; i < 50.0; i += 1.0) {
+  for (var j = 0.0; j < 18.0; j += 1.0) {
+    let i = j * 2.8;
     let offs = 0.006 * auroraHash21(rd.xz * 1000.0) * smoothstep(0.0, 15.0, i);
     var pt = ((0.8 + pow(i, 1.4) * 0.002) - ro.y) / (rd.y * 2.0 + 0.4);
     pt -= offs;
@@ -16,8 +17,8 @@ fn aurora(rd: vec3f, iTime: f32, amount: f32) -> vec4f {
     let p = bpos.zx;
     let rzt = auroraTriNoise2d(p, 0.06, iTime);
     let col2 = vec4f((sin(1.0 - vec3f(2.15, -0.5, 1.2) + i * 0.043) * 0.5 + 0.5) * rzt, rzt);
-    avgCol = mix(avgCol, col2, 0.5);
-    col += avgCol * exp2(-i * 0.065 - 2.5) * smoothstep(0.0, 5.0, i);
+    avgCol = mix(avgCol, col2, 0.7);
+    col += avgCol * exp2(-i * 0.065 - 2.5) * smoothstep(0.0, 5.0, i) * 2.8;
   }
 
   col *= clamp(rd.y * 15.0 + 0.4, 0.0, 1.0);

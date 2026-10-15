@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { addSnow } from '../systems/snowCover.js';
 
 const WALL_BRIGHTNESS = 3.5;
 
@@ -44,7 +45,13 @@ export const loadModels = async () => {
   });
 
   house.traverse((child) => {
-    if (child.isMesh && child.material.name === 'Creme') child.material = bakedMaterial;
+    if (!child.isMesh) return;
+    if (child.material.name === 'Creme') child.material = bakedMaterial;
+    else if (child.material.name === 'Donkerrood') child.material = addSnow(child.material);
+  });
+
+  windmill.traverse((child) => {
+    if (child.isMesh) child.material = addSnow(child.material);
   });
 
   prepare(house);
