@@ -14,6 +14,7 @@ import { createBeachBall, BEACH_BALL_RADIUS } from './objects/beachBall.js';
 import { createBreakables } from './systems/breakables.js';
 import { createBarrel, BARREL_RADIUS, BARREL_HEIGHT } from './objects/barrel.js';
 import { createRock, ROCK_SIZE } from './objects/rock.js';
+import { loadScenery } from './objects/scenery.js';
 
 const $canvas = document.getElementById('webgl');
 let renderer, camera, scene, controls;
@@ -26,7 +27,7 @@ const dayCycle = createDayCycle(13);
 const sunColor = new THREE.Color();
 const timer = new THREE.Timer();
 const mouse = new THREE.Vector2(0.3, 0.5);
-let physics, waterHeight, breakables;
+let physics, waterHeight, breakables, scenery;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerStart = null;
@@ -120,6 +121,8 @@ const init = async () => {
   windmill.traverse((child) => {
     if (child.name === 'Molen_Toren') breakables.addStatic(child);
   });
+
+  scenery = await loadScenery(scene, physics, breakables);
 
   const $time = document.getElementById('time');
   const $timeOutput = document.getElementById('timeOutput');
@@ -297,6 +300,7 @@ const draw = () => {
 
   physics.update(deltaTime, waterHeight);
   breakables.update(timer.getElapsed());
+  scenery.update(timer.getElapsed(), waterHeight);
 
   controls.update();
   renderer.render(scene, camera);

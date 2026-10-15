@@ -4,7 +4,7 @@ import { addSnow } from '../systems/snowCover.js';
 
 const WALL_BRIGHTNESS = 3.5;
 
-const fitToSize = (group, size, axis = 'width') => {
+export const fitToSize = (group, size, axis = 'width') => {
   const box = new THREE.Box3().setFromObject(group);
   const dimensions = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
